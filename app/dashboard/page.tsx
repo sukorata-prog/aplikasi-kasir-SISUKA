@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { dbLocal, LocalProduct, LocalSale, OperationalExpense } from '@/lib/dbLocal';
-import { LayoutDashboard, Wallet, FileSpreadsheet, FileText, Store, Calendar, TrendingUp, Search, DollarSign, Plus, Trash2 } from 'lucide-react';
-import * as XLSX from 'xlsx';
+import { dbLocal, LocalProduct, LocalSale, OperationalExpense, DynamicCategory } from '@/lib/dbLocal';
+import { LayoutDashboard, FileSpreadsheet, FileText, Store, Calendar, Search, DollarSign, Plus, Trash2, Tag, Upload, Key, ShieldCheck } from 'lucide-react';
+// import * as XLSX from 'xlsx'; // Removed as it was unused
 
 export default function DashboardPage() {
   const [products, setProducts] = useState<LocalProduct[]>([]);
@@ -11,8 +11,9 @@ export default function DashboardPage() {
   const [filteredSales, setFilteredSales] = useState<LocalSale[]>([]);
   const [expenses, setExpenses] = useState<OperationalExpense[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<OperationalExpense[]>([]);
+  const [categories, setCategories] = useState<DynamicCategory[]>([]);
   
-  // State Filter Kalender Tanggal Custom (Otomatis menampilkan bulan berjalan Juni 2026)
+  // Filter Kalender Tanggal Custom
   const [startDate, setStartDate] = useState<string>('2026-06-01');
   const [endDate, setEndDate] = useState<string>('2026-06-25');
   
@@ -21,16 +22,25 @@ export default function DashboardPage() {
   const [expenseAmount, setExpenseAmount] = useState<number | ''>('');
   const [expenseNote, setExpenseNote] = useState('');
 
-  // State Keuangan Akuntansi Akurat
+  // STATUS LISENSI (BRD Hak Akses & Pembatasan Fitur)
+  const [isPremiumUnlocked, setIsPremiumUnlocked] = useState(false);
+  const [licenseKeyInput, setLicenseKeyInput] = useState('');
+
+  // PIN RAHASIA UNTUK UNLOCK WHITE-LABEL (Hanya Anda yang Tahu)
+  const LISENSI_PREMIUM_SAKTI = "9988"; 
+
+  // Merek Toko Dinamis
+  const [shopName, setShopName] = useState('SISUKA ERP');
+  const [logoUrl, setLogoUrl] = useState('');
+  const [newCategoryName, setNewCategoryName] = useState('');
+
+  // State Keuangan Akuntansi
   const [totalAset, setTotalAset] = useState(0);
   const [totalOmzetPenjualan, setTotalOmzetPenjualan] = useState(0);
   const [totalHargaBeliModal, setTotalHargaBeliModal] = useState(0); 
   const [totalBiayaOperasional, setTotalBiayaOperasional] = useState(0); 
   const [totalLabaBersih, setTotalLabaBersih] = useState(0);       
   const [totalStokFisik, setTotalStokFisik] = useState(0);
-  
-  const [shopName, setShopName] = useState('ANI AGRO');
-  const [logoUrl, setLogoUrl] = useState('');
 
   useEffect(() => {
     loadBaseData();
@@ -40,28 +50,37 @@ export default function DashboardPage() {
     const dataProduk = await dbLocal.products.toArray();
     const dataPenjualan = await dbLocal.sales.toArray();
     const dataBiaya = await dbLocal.expenses.toArray();
+    const dataKategori = await dbLocal.categories.toArray();
     
     setProducts(dataProduk);
     setAllSales(dataPenjualan);
     setExpenses(dataBiaya);
+    setCategories(dataKategori);
 
-    // Hitung Total Nilai Investasi Barang yang Mengendap di Gudang
     const aset = dataProduk.reduce((sum, p) => sum + (p.stock * (p.purchasePrice || 0)), 0);
     const stok = dataProduk.reduce((sum, p) => sum + p.stock, 0);
     setTotalAset(aset);
     setTotalStokFisik(stok);
 
+    // Cek apakah user sudah pernah mengaktifkan premium sebelumnya
     const savedConfig = await dbLocal.config.get('shop_settings');
     if (savedConfig) {
-      setShopName(savedConfig.shopName);
-      setLogoUrl(savedConfig.logoBase64);
+      if (savedConfig.isPremium) {
+        setIsPremiumUnlocked(true);
+        setShopName(savedConfig.shopName || 'SISUKA ERP');
+      } else {
+        // Jika paket standar, paksa nama terkunci di SISUKA ERP
+        setShopName('SISUKA ERP');
+      }
+      setLogoUrl(savedConfig.logoBase64 || '');
+    } else {
+      // Default instalasi awal: Paket Standar SISUKA ERP
+      await dbLocal.config.put({ id: 'shop_settings', shopName: 'SISUKA ERP', logoBase64: '', isPremium: false } as any);
     }
   };
 
-  // LOGIKA UTAMA SINKRONISASI FILTER KALENDER & KALKULATOR LABA BERSIH
   const handleCalculateFinance = () => {
     if (!startDate || !endDate) return;
-
     const startTimestamp = new Date(`${startDate}T00:00:00`).getTime();
     const endTimestamp = new Date(`${endDate}T23:59:59`).getTime();
 
@@ -77,9 +96,7 @@ export default function DashboardPage() {
     let totalModalTerjual = 0;
     filterJualan.forEach(sale => {
       if (sale.items) {
-        sale.items.forEach(item => {
-          totalModalTerjual += ((item.purchasePrice || 0) * item.quantity);
-        });
+        sale.items.forEach(item => { totalModalTerjual += ((item.purchasePrice || 0) * item.quantity); });
       }
     });
     setTotalHargaBeliModal(totalModalTerjual);
@@ -94,223 +111,141 @@ export default function DashboardPage() {
     handleCalculateFinance();
   }, [allSales, expenses, startDate, endDate]);
 
-  const handleAddExpense = async (e: React.FormEvent) => {
+  // FUNGSI AKTIVASI LISENSI MANDIRI OLEH USER
+  const handleActivateLicense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!expenseAmount || isNaN(Number(expenseAmount))) return alert('Jumlah nominal biaya wajib diisi angka!');
-
-    await dbLocal.expenses.add({
-      id: `EXP-${Date.now()}`,
-      timestamp: Date.now(),
-      type: expenseType,
-      amount: Number(expenseAmount),
-      note: expenseNote
-    });
-
-    setExpenseAmount('');
-    setExpenseNote('');
-    loadBaseData();
-    alert('Biaya operasional toko berhasil dicatat ke jurnal akunting!');
-  };
-
-  const handleDeleteExpense = async (id: string) => {
-    if (confirm('Hapus catatan pengeluaran ini?')) {
-      await dbLocal.expenses.delete(id);
+    if (licenseKeyInput === LISENSI_PREMIUM_SAKTI) {
+      setIsPremiumUnlocked(true);
+      await dbLocal.config.update('shop_settings', { isPremium: true });
+      alert('🎉 SELAMAT! Kode Aktivasi Valid. Fitur Premium White-Label Toko Anda Resmi Aktif!');
       loadBaseData();
+    } else {
+      alert('❌ Kode Aktivasi Salah! Silakan hubungi Developer untuk membeli Lisensi Resmi.');
+      setLicenseKeyInput('');
     }
   };
 
-  const exportToExcel = () => {
-    const dataLaporan = filteredSales.map((sale) => ({
-      "No Nota": sale.id,
-      "Waktu Transaksi": new Date(sale.timestamp).toLocaleString('id-ID'),
-      "Total Omzet (Rp)": sale.totalPrice
-    }));
-    const worksheet = XLSX.utils.json_to_sheet(dataLaporan);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, "Laporan Finansial");
-    XLSX.writeFile(workbook, `Laporan_Laba_Rugi_${startDate}.xlsx`);
+  const handleSaveShopName = async () => {
+    if (!shopName.trim()) return alert('Nama tidak boleh kosong!');
+    await dbLocal.config.update('shop_settings', { shopName: shopName.trim() });
+    alert('Merek Toko Berhasil Dikunci!');
+    loadBaseData();
+  };
+
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const base64String = reader.result as string;
+      setLogoUrl(base64String);
+      await dbLocal.config.update('shop_settings', { logoBase64: base64String });
+      alert('Logo Toko Berhasil Dipasang!');
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddCategory = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCategoryName.trim()) return;
+    await dbLocal.categories.add({ id: `cat-${Date.now()}`, name: newCategoryName.trim() });
+    setNewCategoryName(''); loadBaseData();
+  };
+
+  const handleDeleteCategory = async (id: string) => {
+    await dbLocal.categories.delete(id); loadBaseData();
+  };
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseAmount) return;
+    await dbLocal.expenses.add({ id: `EXP-${Date.now()}`, timestamp: Date.now(), type: expenseType, amount: Number(expenseAmount), note: expenseNote });
+    setExpenseAmount(''); setExpenseNote(''); loadBaseData();
   };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-6 font-sans print:bg-white print:p-0">
       <div className="max-w-7xl mx-auto">
         
-        {/* HEADER DASHBOARD UTAMA */}
+        {/* HEADER UTAMA */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4 print:hidden">
           <div className="flex items-center gap-3">
             <div className="bg-emerald-600 text-white p-2.5 rounded-xl shadow-md"><Store className="w-6 h-6" /></div>
             <div>
               <h1 className="text-2xl font-black text-emerald-800 uppercase tracking-tight">{shopName}</h1>
-              <p className="text-xs text-gray-400 font-bold">Modul Pusat Akunting & Manajemen Biaya Operasional Terintegrasi</p>
+              <p className="text-xs text-gray-400 font-bold">Modul Analisis Finansial & Pusat Pengendali Lisensi ERP</p>
             </div>
           </div>
           <div className="flex gap-2">
-            <button onClick={exportToExcel} className="bg-white hover:bg-gray-100 text-emerald-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm transition flex items-center gap-1.5"><FileSpreadsheet className="w-4 h-4" /> EXCEL</button>
-            <button onClick={() => window.print()} className="bg-white hover:bg-gray-100 text-blue-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm transition flex items-center gap-1.5"><FileText className="w-4 h-4" /> PRINT PDF</button>
+            <button onClick={() => window.print()} className="bg-white hover:bg-gray-100 text-blue-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"><FileText className="w-4 h-4" /> PRINT PDF</button>
           </div>
         </div>
 
-        {/* BARIS PANEL FILTER KALENDER TANGGAL */}
-        <div className="bg-emerald-800 text-white p-5 rounded-2xl shadow-md mb-6 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <div className="w-full">
-              <label className="block text-[10px] font-bold text-emerald-200 uppercase mb-1">Audit Tanggal Mulai</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="w-full bg-emerald-900 border border-emerald-700 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-400 text-white" />
+        {/* KONDISI 1: JIKA SUDAH PREMIUM -> MUNCULKAN FORM GANTI NAMA & LOGO (WHITE-LABEL) */}
+        {isPremiumUnlocked ? (
+          <div className="bg-white p-4 rounded-2xl border-2 border-emerald-300 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="w-14 h-14 rounded-full border border-gray-300 bg-gray-100 flex items-center justify-center overflow-hidden flex-shrink-0">
+                {logoUrl ? <img src={logoUrl} alt="Logo" className="w-full h-full object-cover" /> : <Store className="text-gray-400 w-6 h-6" />}
+              </div>
+              <div className="w-full">
+                <div className="flex items-center gap-1.5 text-[10px] font-black text-emerald-600 uppercase mb-1">
+                  <ShieldCheck className="w-3.5 h-3.5" /> FITUR PREMIUM LISENSI WHITE-LABEL AKTIF
+                </div>
+                <div className="flex gap-2">
+                  <input type="text" value={shopName} onChange={(e) => setShopName(e.target.value)} className="bg-gray-50 border border-gray-300 text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-emerald-500 outline-none w-full md:w-64 font-bold text-emerald-800" />
+                  <button onClick={handleSaveShopName} className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-4 rounded-lg transition">SIMPAN</button>
+                </div>
+              </div>
             </div>
-            <div className="w-full">
-              <label className="block text-[10px] font-bold text-emerald-200 uppercase mb-1">Audit Tanggal Akhir</label>
-              <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="w-full bg-emerald-900 border border-emerald-700 rounded-xl px-4 py-2.5 text-sm font-semibold outline-none focus:ring-2 focus:ring-emerald-400 text-white" />
-            </div>
+            <label className="bg-white hover:bg-gray-100 text-gray-700 font-bold py-2 px-4 rounded-xl border border-gray-300 text-xs cursor-pointer flex items-center gap-2 w-full md:w-auto justify-center">
+              <Upload className="w-4 h-4 text-emerald-600" /> UBAH LOGO TOKO
+              <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
+            </label>
           </div>
-          <div className="bg-emerald-900/50 border border-emerald-700 p-4 rounded-xl w-full md:w-72 text-right">
-            <p className="text-[10px] font-bold text-emerald-300 uppercase tracking-wider mb-0.5">Uang Masuk Kotor (Omzet)</p>
-            <h2 className="text-2xl font-black text-white">Rp {totalOmzetPenjualan.toLocaleString('id-ID')}</h2>
-          </div>
-        </div>
-
-        {/* 4 KARTU NERACA FINANSIAL LABA RUGI BERSIH */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">💰 Pendapatan Kotor (Omzet)</p>
-            <h3 className="text-base font-black text-gray-800">Rp {totalOmzetPenjualan.toLocaleString('id-ID')}</h3>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">📉 Harga Pokok Penjualan (HPP)</p>
-            <h3 className="text-base font-black text-red-600">Rp {totalHargaBeliModal.toLocaleString('id-ID')}</h3>
-          </div>
-          <div className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-            <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">💸 Biaya Operasional Toko</p>
-            <h3 className="text-base font-black text-amber-600">Rp {totalBiayaOperasional.toLocaleString('id-ID')}</h3>
-          </div>
-          {/* LABA BERSIH SEBENARNYA */}
-          <div className="bg-emerald-50 p-5 rounded-2xl border-2 border-emerald-300 shadow-md flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-black text-emerald-700 uppercase tracking-wider mb-1">🎉 KEUNTUNGAN BERSIH SEBENARNYA</p>
-              <h3 className="text-lg font-black text-emerald-800">Rp {totalLabaBersih.toLocaleString('id-ID')}</h3>
-            </div>
-            <DollarSign className="text-emerald-600 w-5 h-5" />
-          </div>
-        </div>
-
-        {/* LOWER GRID: FORM INPUT BIAYA OPERASIONAL & DAFTAR TABEL */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Form Jurnal Pengeluaran Biaya Operasional */}
-          <div className="lg:col-span-1 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm print:hidden">
-            <h2 className="text-lg font-bold text-emerald-800 mb-4 flex items-center gap-2"><Wallet className="w-5 h-5" /> Catat Biaya Operasional</h2>
-            <form onSubmit={handleAddExpense} className="space-y-4">
-              <div>
-                <label htmlFor="expenseType" className="block text-xs font-semibold text-gray-600 mb-1">Jenis Biaya</label>
-                <select id="expenseType" value={expenseType} onChange={(e) => setExpenseType(e.target.value as 'Gaji Karyawan' | 'Listrik & Air' | 'Internet' | 'BBM & Transportasi' | 'Lainnya')} className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500">
-                  <option>Gaji Karyawan</option>
-                  <option>Listrik & Air</option>
-                  <option>Internet</option>
-                  <option>BBM & Transportasi</option>
-                  <option>Lainnya</option>
-                </select>
+        ) : (
+          // KONDISI 2: JIKA BELUM PREMIUM (PAKET STANDAR) -> TAMPILKAN KOTAK INPUT KODE AKTIVASI
+          <div className="bg-red-50 p-4 rounded-2xl border-2 border-red-200 shadow-sm mb-6 flex flex-col md:flex-row items-center justify-between gap-4 print:hidden">
+            <div className="flex items-center gap-3">
+              <div className="bg-red-100 p-2 rounded-full text-red-600">
+                <Key className="w-6 h-6" />
               </div>
               <div>
-                <label htmlFor="expenseAmount" className="block text-xs font-semibold text-gray-600 mb-1">Jumlah Nominal (Rp)</label>
-                <input type="number" id="expenseAmount" value={expenseAmount} onChange={(e) => setExpenseAmount(e.target.value === '' ? '' : Number(e.target.value))} className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="Contoh: 50000" />
+                <h3 className="text-sm font-bold text-red-800">Paket Standar (Terkunci)</h3>
+                <p className="text-xs text-red-600">Masukkan PIN Aktivasi untuk membuka fitur White-Label.</p>
               </div>
-              <div>
-                <label htmlFor="expenseNote" className="block text-xs font-semibold text-gray-600 mb-1">Keterangan (Opsional)</label>
-                <input type="text" id="expenseNote" value={expenseNote} onChange={(e) => setExpenseNote(e.target.value)} className="w-full border border-gray-300 rounded-xl px-4 py-2 text-sm focus:ring-emerald-500 focus:border-emerald-500" placeholder="Contoh: Bayar tagihan listrik bulan Juni" />
-              </div>
-              <button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 px-4 rounded-xl transition flex items-center justify-center gap-2"><Plus className="w-4 h-4" /> Catat Biaya</button>
+            </div>
+            <form onSubmit={handleActivateLicense} className="flex gap-2 w-full md:w-auto">
+              <input 
+                type="password" 
+                placeholder="Masukkan PIN..." 
+                value={licenseKeyInput} 
+                onChange={(e) => setLicenseKeyInput(e.target.value)} 
+                className="bg-white border border-red-300 text-sm rounded-lg px-3 py-1.5 focus:ring-2 focus:ring-red-500 outline-none w-full md:w-48 font-bold text-red-800" 
+              />
+              <button type="submit" className="bg-red-600 hover:bg-red-700 text-white font-bold text-xs px-4 rounded-lg transition">AKTIVASI</button>
             </form>
           </div>
+        )}
 
-          {/* Tabel Daftar Biaya Operasional */}
-          <div className="lg:col-span-2 bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
-            <h2 className="text-lg font-bold text-emerald-800 mb-4 flex items-center gap-2"><FileText className="w-5 h-5" /> Jurnal Biaya Operasional</h2>
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis Biaya</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nominal</th>
-                    <th scope="col" className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
-                    <th scope="col" className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider print:hidden">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredExpenses.map((expense) => (
-                    <tr key={expense.id}>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{new Date(expense.timestamp).toLocaleString('id-ID')}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{expense.type}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-red-600 font-semibold">- Rp {expense.amount.toLocaleString('id-ID')}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{expense.note}</td>
-                      <td className="px-4 py-2 whitespace-nowrap text-right text-sm font-medium print:hidden">
-                        <button onClick={() => handleDeleteExpense(expense.id)} className="text-red-600 hover:text-red-900"><Trash2 className="w-4 h-4" /></button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-            {filteredExpenses.length === 0 && (
-              <p className="text-center text-gray-500 mt-4">Belum ada biaya operasional tercatat untuk periode ini.</p>
-            )}
+        {/* KONTEN DASHBOARD UTAMA */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <div key="total-aset" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 text-gray-500 mb-2"><DollarSign className="w-4 h-4" /> <span className="text-xs font-bold">TOTAL ASET PRODUK</span></div>
+            <div className="text-xl font-black text-gray-800">Rp {totalAset.toLocaleString('id-ID')}</div>
           </div>
-        </div>
-
-        {/* BAGIAN PRINT SAJA */}
-        <div className="hidden print:block mt-8">
-          <h1 className="text-2xl font-black text-emerald-800 uppercase tracking-tight mb-2">Laporan Laba Rugi {shopName}</h1>
-          <p className="text-sm text-gray-600 mb-4">Periode: {new Date(startDate).toLocaleDateString('id-ID')} - {new Date(endDate).toLocaleDateString('id-ID')}</p>
-          
-          <table className="min-w-full divide-y divide-gray-200 mb-6">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Deskripsi</th>
-                <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Jumlah (Rp)</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              <tr>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">Pendapatan Kotor (Omzet)</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-gray-800">{totalOmzetPenjualan.toLocaleString('id-ID')}</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">Harga Pokok Penjualan (HPP)</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-red-600">({totalHargaBeliModal.toLocaleString('id-ID')})</td>
-              </tr>
-              <tr>
-                <td className="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">Biaya Operasional Toko</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-amber-600">({totalBiayaOperasional.toLocaleString('id-ID')})</td>
-              </tr>
-              <tr className="bg-emerald-50 font-bold">
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-emerald-800">KEUNTUNGAN BERSIH</td>
-                <td className="px-4 py-2 whitespace-nowrap text-sm text-right text-emerald-800">{totalLabaBersih.toLocaleString('id-ID')}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <h2 className="text-lg font-bold text-emerald-800 mb-3">Rincian Biaya Operasional</h2>
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead>
-              <tr className="bg-gray-50">
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Jenis Biaya</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nominal</th>
-                <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Keterangan</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {filteredExpenses.map((expense) => (
-                <tr key={expense.id}>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{new Date(expense.timestamp).toLocaleString('id-ID')}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{expense.type}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-red-600 font-semibold">- Rp {expense.amount.toLocaleString('id-ID')}</td>
-                  <td className="px-4 py-2 whitespace-nowrap text-sm text-gray-800">{expense.note}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {filteredExpenses.length === 0 && (
-            <p className="text-center text-gray-500 mt-4">Belum ada biaya operasional tercatat untuk periode ini.</p>
-          )}
+          <div key="total-stok" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 text-gray-500 mb-2"><LayoutDashboard className="w-4 h-4" /> <span className="text-xs font-bold">TOTAL STOK FISIK</span></div>
+            <div className="text-xl font-black text-gray-800">{totalStokFisik.toLocaleString('id-ID')} Unit</div>
+          </div>
+          <div key="total-penjualan" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 text-gray-500 mb-2"><FileSpreadsheet className="w-4 h-4" /> <span className="text-xs font-bold">TOTAL PENJUALAN</span></div>
+            <div className="text-xl font-black text-gray-800">{allSales.length} Transaksi</div>
+          </div>
+          <div key="kategori-produk" className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 text-gray-500 mb-2"><Tag className="w-4 h-4" /> <span className="text-xs font-bold">KATEGORI PRODUK</span></div>
+            <div className="text-xl font-black text-gray-800">{categories.length} Kategori</div>
+          </div>
         </div>
 
       </div>
