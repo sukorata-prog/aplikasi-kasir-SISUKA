@@ -208,39 +208,58 @@ export default function StokGudangPage() {
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">SKU / Produk</th>
-                    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kategori</th>
-                    <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Stok</th>
-                    <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Harga Jual</th>
-                    <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Aksi</th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredProducts.map((p) => (
-                    <tr key={p.id} className="hover:bg-gray-50 transition">
-                      <td className="px-4 py-3">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-mono text-emerald-600 font-bold">{p.sku}</span>
-                          <span className="text-sm font-bold text-gray-800">{p.name}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3"><span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{p.category}</span></td>
-                      <td className="px-4 py-3 text-center">
-                        <span className={`text-sm font-black ${p.stock <= 5 ? 'text-red-600 animate-pulse' : 'text-gray-800'}`}>{p.stock}</span>
-                        <span className="text-[10px] text-gray-400 ml-1">{p.units}</span>
-                      </td>
-                      <td className="px-4 py-3 text-right text-sm font-bold text-gray-800">Rp {p.price.toLocaleString('id-ID')}</td>
-                      <td className="px-4 py-3 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => openBarcodeModal(p.sku, p.name)} className="p-1.5 text-gray-400 hover:text-emerald-600 transition" title="Cetak Barcode"><QrCode className="w-4 h-4" /></button>
-                          <button onClick={() => handleRefillStock(p.id)} className="p-1.5 text-gray-400 hover:text-blue-600 transition" title="Tambah Stok"><ArrowUp className="w-4 h-4" /></button>
-                          <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition" title="Hapus"><Trash2 className="w-4 h-4" /></button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
+  <tr>
+    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">SKU / Produk</th>
+    <th className="px-4 py-3 text-left text-[10px] font-bold text-gray-400 uppercase tracking-wider">Kategori</th>
+    <th className="px-4 py-3 text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">Stok</th>
+    <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Harga Beli</th>  {/* TAMBAHKAN INI */}
+    <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Harga Jual</th>
+    <th className="px-4 py-3 text-right text-[10px] font-bold text-gray-400 uppercase tracking-wider">Aksi</th>
+  </tr>
+</thead>
+               <tbody className="bg-white divide-y divide-gray-200">
+  {filteredProducts.map((p) => (
+    <tr key={p.id} className="hover:bg-gray-50 transition">
+      <td className="px-4 py-3">
+        <div className="flex flex-col">
+          <span className="text-[10px] font-mono text-emerald-600 font-bold">{p.sku}</span>
+          <span className="text-sm font-bold text-gray-800">{p.name}</span>
+        </div>
+      </td>
+      <td className="px-4 py-3">
+        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">{p.category}</span>
+      </td>
+      <td className="px-4 py-3 text-center">
+        <span className={`text-sm font-black ${p.stock <= 5 ? 'text-red-600 animate-pulse' : 'text-gray-800'}`}>{p.stock}</span>
+        <span className="text-[10px] text-gray-400 ml-1">{p.units}</span>
+      </td>
+      
+      {/* ===== HARGA BELI (purchasePrice) ===== */}
+      <td className="px-4 py-3 text-right text-sm font-bold text-orange-600">
+        Rp {p.purchasePrice?.toLocaleString('id-ID') || 0}
+      </td>
+      
+      {/* ===== HARGA JUAL (price) ===== */}
+      <td className="px-4 py-3 text-right text-sm font-bold text-emerald-600">
+        Rp {p.price?.toLocaleString('id-ID') || 0}
+      </td>
+      
+      <td className="px-4 py-3 text-right">
+        <div className="flex items-center justify-end gap-1.5">
+          <button onClick={() => openBarcodeModal(p.sku, p.name)} className="p-1.5 text-gray-400 hover:text-emerald-600 transition" title="Cetak Barcode">
+            <QrCode className="w-4 h-4" />
+          </button>
+          <button onClick={() => handleRefillStock(p.id)} className="p-1.5 text-gray-400 hover:text-blue-600 transition" title="Tambah Stok">
+            <ArrowUp className="w-4 h-4" />
+          </button>
+          <button onClick={() => handleDelete(p.id)} className="p-1.5 text-gray-400 hover:text-red-600 transition" title="Hapus">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </td>
+    </tr>
+  ))}
+</tbody>
               </table>
               {filteredProducts.length === 0 && <p className="text-center py-10 text-gray-400 text-sm">Belum ada produk POC terdaftar.</p>}
             </div>
