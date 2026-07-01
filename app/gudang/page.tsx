@@ -28,8 +28,16 @@ export default function GudangPage() {
 
     const id = Date.now().toString();
     await dbLocal.products.add({
-      id, name, sku, units, stock, price, is_seasonal: isSeasonal
-    });
+  id,
+  name,
+  sku,
+  units,
+  stock,
+  price,
+  purchasePrice: 0,
+  category: "Umum",
+  is_seasonal: isSeasonal,
+});
 
     // Reset Form Input Utama
     setName(''); setSku(''); setStock(0); setPrice(0); setIsSeasonal(false);

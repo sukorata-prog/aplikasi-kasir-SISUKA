@@ -39,3 +39,8 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# SISUKA Desktop Build
+SISUKA.app/
+*.zip
+SISUKA_ERP_OFFLINE/

@@ -549,192 +549,584 @@ export default function KasirPage() {
     }
   };
 
-  // ===== KOMPONEN LAPORAN KASIR =====
-  const LaporanKasir = () => {
-    const [shift, setShift] = useState<'Pagi' | 'Siang' | 'Malam' | 'SEMUA'>('SEMUA');
-    const [laporan, setLaporan] = useState<any>(null);
-    const [uangFisik, setUangFisik] = useState<number | ''>('');
-    const [loading, setLoading] = useState(true);
+// ===== KOMPONEN LAPORAN KASIR =====
+const LaporanKasir = () => {
+  const [shift, setShift] = useState<'Pagi' | 'Siang' | 'Malam' | 'SEMUA'>('SEMUA');
+  const [laporan, setLaporan] = useState<any>(null);
+  const [uangFisik, setUangFisik] = useState<number | ''>('');
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-      const loadLaporan = async () => {
-        setLoading(true);
-        try {
-          const today = new Date();
-          const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
-          const endOfDay = new Date(today.setHours(23, 59, 59, 999)).getTime();
-          
-          let query = await dbLocal.sales
-            .where('timestamp')
-            .between(startOfDay, endOfDay)
-            .toArray();
+  useEffect(() => {
+    const loadLaporan = async () => {
+      setLoading(true);
+      try {
+        const today = new Date();
+        const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
+        const endOfDay = new Date(today.setHours(23, 59, 59, 999)).getTime();
+        
+        let query = await dbLocal.sales
+          .where('timestamp')
+          .between(startOfDay, endOfDay)
+          .toArray();
 
-          if (shift !== 'SEMUA') {
-            query = query.filter(s => s.shift === shift);
-          }
-
-          const totalTransaksi = query.length;
-          const totalOmzet = query.reduce((sum, s) => sum + s.totalPrice, 0);
-          const totalTunai = query
-            .filter(s => s.paymentMethod === 'Tunai')
-            .reduce((sum, s) => sum + s.totalPrice, 0);
-          const totalQRIS = query
-            .filter(s => s.paymentMethod === 'QRIS / Transfer')
-            .reduce((sum, s) => sum + s.totalPrice, 0);
-
-          setLaporan({
-            totalTransaksi,
-            totalOmzet,
-            totalTunai,
-            totalQRIS,
-            data: query
-          });
-        } catch (err) {
-          console.error('Gagal load laporan:', err);
-        } finally {
-          setLoading(false);
+        if (shift !== 'SEMUA') {
+          query = query.filter(s => s.shift === shift);
         }
-      };
-      loadLaporan();
-    }, [shift]);
 
-    if (loading) {
-      return <div className="text-center py-8 text-gray-400">Loading laporan...</div>;
-    }
+        const totalTransaksi = query.length;
+        const totalOmzet = query.reduce((sum, s) => sum + s.totalPrice, 0);
+        const totalTunai = query
+          .filter(s => s.paymentMethod === 'Tunai')
+          .reduce((sum, s) => sum + s.totalPrice, 0);
+        const totalQRIS = query
+          .filter(s => s.paymentMethod === 'QRIS / Transfer')
+          .reduce((sum, s) => sum + s.totalPrice, 0);
 
-    if (!laporan) {
-      return <div className="text-center py-8 text-gray-400">Belum ada data</div>;
-    }
+        setLaporan({
+          totalTransaksi,
+          totalOmzet,
+          totalTunai,
+          totalQRIS,
+          data: query
+        });
+      } catch (err) {
+        console.error('Gagal load laporan:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadLaporan();
+  }, [shift]);
 
-    const selisih = uangFisik ? Number(uangFisik) - laporan.totalTunai : 0;
+  if (loading) {
+    return <div className="text-center py-8 text-gray-400">Loading laporan...</div>;
+  }
 
-    return (
-      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-        {/* Filter Shift */}
-        <div className="flex flex-wrap gap-2 mb-4">
-          <button
-            onClick={() => setShift('SEMUA')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-              shift === 'SEMUA' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            SEMUA SHIFT
-          </button>
-          <button
-            onClick={() => setShift('Pagi')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-              shift === 'Pagi' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            🌅 Pagi
-          </button>
-          <button
-            onClick={() => setShift('Siang')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-              shift === 'Siang' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            ☀️ Siang
-          </button>
-          <button
-            onClick={() => setShift('Malam')}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-              shift === 'Malam' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-            }`}
-          >
-            🌙 Malam
-          </button>
+  if (!laporan) {
+    return <div className="text-center py-8 text-gray-400">Belum ada data</div>;
+  }
+
+  const selisih = uangFisik ? Number(uangFisik) - laporan.totalTunai : 0;
+
+  // ===== CETAK LAPORAN =====
+  const handlePrint = () => {
+    const printContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Laporan Kasir</title>
+      <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .print-content { max-width: 800px; margin: 0 auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+        th { background-color: #f3f4f6; }
+        .text-center { text-align: center; }
+        .text-right { text-align: right; }
+        .text-xs { font-size: 12px; }
+        .text-sm { font-size: 14px; }
+        .text-xl { font-size: 20px; }
+        .text-2xl { font-size: 24px; }
+        .font-bold { font-weight: bold; }
+        .border-b { border-bottom: 1px solid #000; }
+        .border-t { border-top: 1px solid #000; }
+        .pt-4 { padding-top: 16px; }
+        .pb-4 { padding-bottom: 16px; }
+        .mb-4 { margin-bottom: 16px; }
+        .mt-4 { margin-top: 16px; }
+        .grid { display: grid; }
+        .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
+        .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+        .gap-4 { gap: 16px; }
+        .bg-gray-100 { background-color: #f3f4f6; }
+        .text-emerald-600 { color: #059669; }
+        .text-emerald-500 { color: #10b981; }
+        .text-red-500 { color: #ef4444; }
+        .text-gray-400 { color: #9ca3af; }
+        .text-gray-500 { color: #6b7280; }
+        .text-gray-600 { color: #4b5563; }
+        .text-gray-700 { color: #374151; }
+        @media print {
+          body { padding: 10px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="print-content">
+        <div class="text-center border-b pb-4 mb-4">
+          <h2 class="text-2xl font-bold">${shopName || 'SISUKA ERP'}</h2>
+          <p class="text-sm text-gray-500">LAPORAN KASIR</p>
+          <p class="text-sm text-gray-500">
+            ${shift === 'SEMUA' ? 'SEMUA SHIFT' : `SHIFT ${shift.toUpperCase()}`}
+          </p>
+          <p class="text-sm text-gray-500">
+            ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+          </p>
+          <p class="text-sm text-gray-500">Kasir: ${currentUser?.name || '-'}</p>
         </div>
 
-        {/* Statistik */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-          <div className="bg-blue-50 p-4 rounded-xl">
-            <p className="text-xs text-gray-500">Transaksi</p>
-            <p className="text-2xl font-bold text-blue-600">{laporan.totalTransaksi}</p>
+        <div class="grid grid-cols-4 gap-4 mb-4">
+          <div class="text-center">
+            <p class="text-xs text-gray-500">Transaksi</p>
+            <p class="text-xl font-bold">${laporan.totalTransaksi}</p>
           </div>
-          <div className="bg-emerald-50 p-4 rounded-xl">
-            <p className="text-xs text-gray-500">Omzet</p>
-            <p className="text-2xl font-bold text-emerald-600">{formatRupiah(laporan.totalOmzet)}</p>
+          <div class="text-center">
+            <p class="text-xs text-gray-500">Omzet</p>
+            <p class="text-xl font-bold">${formatRupiah(laporan.totalOmzet)}</p>
           </div>
-          <div className="bg-green-50 p-4 rounded-xl">
-            <p className="text-xs text-gray-500">💵 Tunai</p>
-            <p className="text-xl font-bold text-green-600">{formatRupiah(laporan.totalTunai)}</p>
+          <div class="text-center">
+            <p class="text-xs text-gray-500">Tunai</p>
+            <p class="text-xl font-bold">${formatRupiah(laporan.totalTunai)}</p>
           </div>
-          <div className="bg-purple-50 p-4 rounded-xl">
-            <p className="text-xs text-gray-500">📱 QRIS/Transfer</p>
-            <p className="text-xl font-bold text-purple-600">{formatRupiah(laporan.totalQRIS)}</p>
+          <div class="text-center">
+            <p class="text-xs text-gray-500">QRIS/Transfer</p>
+            <p class="text-xl font-bold">${formatRupiah(laporan.totalQRIS)}</p>
           </div>
         </div>
 
-        {/* Cek Uang Fisik */}
-        <div className="border-t pt-4">
-          <div className="flex flex-col sm:flex-row gap-4 items-center">
-            <div className="flex-1">
-              <label className="text-xs font-bold text-gray-500">💰 Uang di Laci</label>
-              <input
-                type="number"
-                value={uangFisik}
-                onChange={(e) => setUangFisik(e.target.value ? Number(e.target.value) : '')}
-                placeholder="Masukkan total uang fisik..."
-                className="w-full border rounded-lg px-3 py-2 text-sm"
-              />
+        ${uangFisik ? `
+        <div class="border-t pt-4 mb-4">
+          <div class="grid grid-cols-3 gap-4 text-center">
+            <div>
+              <p class="text-xs text-gray-500">Uang di Laci</p>
+              <p class="text-lg font-bold">${formatRupiah(Number(uangFisik))}</p>
             </div>
-            <div className="flex-1 text-center">
-              <p className="text-xs text-gray-500">Selisih</p>
-              <p className={`text-xl font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-                {uangFisik ? formatRupiah(selisih) : '—'}
+            <div>
+              <p class="text-xs text-gray-500">Selisih</p>
+              <p class="text-lg font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}">
+                ${formatRupiah(selisih)}
               </p>
-              {uangFisik && selisih === 0 && <p className="text-[10px] text-emerald-600">✅ Pas!</p>}
-              {uangFisik && selisih > 0 && <p className="text-[10px] text-emerald-500">✅ Lebih {formatRupiah(selisih)}</p>}
-              {uangFisik && selisih < 0 && <p className="text-[10px] text-red-500">❌ Kurang {formatRupiah(Math.abs(selisih))}</p>}
+            </div>
+            <div>
+              <p class="text-xs text-gray-500">Status</p>
+              <p class="text-lg font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}">
+                ${selisih === 0 ? '✅ PAS' : selisih > 0 ? '✅ LEBIH' : '❌ KURANG'}
+              </p>
             </div>
           </div>
         </div>
+        ` : ''}
 
-        {/* Tombol Aksi */}
-        <div className="mt-4 flex gap-2">
-          <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg">
-            ✅ Setoran Selesai
-          </button>
-          <button 
-            onClick={() => window.print()} 
-            className="flex-1 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded-lg"
-          >
-            🖨️ Cetak Laporan
-          </button>
+        <div class="border-t pt-4">
+          <h4 class="font-bold text-sm text-gray-700 mb-2">📋 Daftar Transaksi</h4>
+          <table class="w-full text-sm">
+            <thead class="bg-gray-100">
+              <tr>
+                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Waktu</th>
+                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Kasir</th>
+                <th class="text-right px-2 py-1 text-xs font-bold text-gray-600">Total</th>
+                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Metode</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${laporan.data.map((sale: any) => `
+                <tr class="border-t">
+                  <td class="px-2 py-1 text-xs">${new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
+                  <td class="px-2 py-1 text-xs">${sale.kasirName || '-'}</td>
+                  <td class="px-2 py-1 text-right font-bold text-xs">${formatRupiah(sale.totalPrice)}</td>
+                  <td class="px-2 py-1 text-xs">${sale.paymentMethod}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot class="bg-gray-100 font-bold">
+              <tr>
+                <td colspan="2" class="px-2 py-1 text-right text-xs">TOTAL</td>
+                <td class="px-2 py-1 text-right text-xs">${formatRupiah(laporan.totalOmzet)}</td>
+                <td></td>
+              </tr>
+            </tfoot>
+          </table>
         </div>
 
-        {/* Daftar Transaksi */}
-        {laporan.data && laporan.data.length > 0 && (
-          <div className="mt-4 border-t pt-4">
-            <h4 className="font-bold text-sm text-gray-700 mb-2">📋 Transaksi</h4>
-            <div className="max-h-48 overflow-y-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Waktu</th>
-                    <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Kasir</th>
-                    <th className="text-right px-2 py-1 text-[10px] font-bold text-gray-400">Total</th>
-                    <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Metode</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {laporan.data.map((sale: any) => (
-                    <tr key={sale.id} className="border-t">
-                      <td className="px-2 py-1 text-xs">{new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
-                      <td className="px-2 py-1 text-xs">{sale.kasirName || '-'}</td>
-                      <td className="px-2 py-1 text-right font-bold">{formatRupiah(sale.totalPrice)}</td>
-                      <td className="px-2 py-1 text-xs">{sale.paymentMethod}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
+        <div class="text-center text-[10px] text-gray-400 border-t pt-4 mt-4">
+          Dicetak pada: ${new Date().toLocaleString('id-ID')}
+        </div>
       </div>
-    );
+    </body>
+    </html>
+    `;
+
+    const printWindow = window.open('', '_blank', 'width=800,height=600');
+    if (printWindow) {
+      printWindow.document.write(printContent);
+      printWindow.document.close();
+    } else {
+      alert('Mohon izinkan popup untuk mencetak laporan!');
+    }
   };
+
+  // ===== FUNGSI DOWNLOAD PDF =====
+  const handleDownloadPDF = () => {
+    const dataLaporan = {
+      shift: shift,
+      totalTransaksi: laporan.totalTransaksi,
+      totalOmzet: laporan.totalOmzet,
+      totalTunai: laporan.totalTunai,
+      totalQRIS: laporan.totalQRIS,
+      data: laporan.data,
+      uangFisik: uangFisik,
+      selisih: selisih
+    };
+
+    const printContent = buildLaporanHTML(dataLaporan);
+    const blob = new Blob([printContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `Laporan_Kasir_${new Date().toISOString().split('T')[0]}.html`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    alert('✅ File HTML laporan siap diunduh! Buka file lalu print sebagai PDF.');
+  };
+
+  // ===== FUNGSI SHARE KE WA =====
+  const handleShareWA = () => {
+    const dataLaporan = {
+      shift: shift,
+      totalTransaksi: laporan.totalTransaksi,
+      totalOmzet: laporan.totalOmzet,
+      totalTunai: laporan.totalTunai,
+      totalQRIS: laporan.totalQRIS,
+      data: laporan.data,
+      uangFisik: uangFisik,
+      selisih: selisih
+    };
+
+    const message = `📊 *Laporan Kasir SISUKA ERP*
+📅 Tanggal: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
+👤 Kasir: ${currentUser?.name || '-'}
+📋 Shift: ${shift === 'SEMUA' ? 'SEMUA SHIFT' : shift.toUpperCase()}
+📈 Total Transaksi: ${laporan.totalTransaksi}
+💰 Total Omzet: ${formatRupiah(laporan.totalOmzet)}
+💵 Tunai: ${formatRupiah(laporan.totalTunai)}
+📱 QRIS/Transfer: ${formatRupiah(laporan.totalQRIS)}
+${uangFisik ? `💵 Uang di Laci: ${formatRupiah(Number(uangFisik))}` : ''}
+${uangFisik ? `📊 Selisih: ${formatRupiah(selisih)} (${selisih === 0 ? 'PAS' : selisih > 0 ? 'LEBIH' : 'KURANG'})` : ''}
+
+📎 File laporan lengkap terlampir.
+Dicetak dari SISUKA ERP`;
+
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+    alert('✅ WhatsApp terbuka! Silakan kirim pesan dan lampirkan file PDF.');
+  };
+
+  // ===== FUNGSI BUILD HTML LAPORAN =====
+  const buildLaporanHTML = (data: any) => {
+    return `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="UTF-8">
+      <title>Laporan Kasir</title>
+      <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+          font-family: 'Courier New', monospace; 
+          padding: 20px; 
+          max-width: 800px; 
+          margin: 0 auto;
+          font-size: 12px;
+        }
+        .header { 
+          text-align: center; 
+          border-bottom: 2px solid #000; 
+          padding-bottom: 10px; 
+          margin-bottom: 15px; 
+        }
+        .header h1 { font-size: 20px; }
+        .header p { font-size: 12px; color: #666; }
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 10px 0; 
+        }
+        th { 
+          background-color: #f0f0f0; 
+          padding: 6px 8px; 
+          text-align: left; 
+          font-size: 11px; 
+          border-bottom: 2px solid #000;
+        }
+        td { 
+          padding: 4px 8px; 
+          border-bottom: 1px solid #ddd; 
+          font-size: 11px; 
+        }
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        .bold { font-weight: bold; }
+        .stat-grid {
+          display: grid;
+          grid-template-columns: repeat(4, 1fr);
+          gap: 10px;
+          margin: 15px 0;
+          text-align: center;
+        }
+        .stat-box {
+          border: 1px solid #ddd;
+          padding: 10px;
+          border-radius: 4px;
+        }
+        .stat-box .label { font-size: 10px; color: #999; }
+        .stat-box .value { font-size: 16px; font-weight: bold; }
+        .total-row { 
+          background-color: #f0f0f0; 
+          font-weight: bold; 
+        }
+        .total-row td { border-top: 2px solid #000; }
+        .footer { 
+          text-align: center; 
+          border-top: 2px solid #000; 
+          padding-top: 10px; 
+          margin-top: 15px; 
+          font-size: 10px; 
+          color: #999; 
+        }
+        .selisih-box {
+          display: grid;
+          grid-template-columns: repeat(3, 1fr);
+          gap: 10px;
+          margin: 15px 0;
+          text-align: center;
+          border-top: 1px solid #ddd;
+          padding-top: 15px;
+        }
+        .selisih-box .label { font-size: 10px; color: #999; }
+        .selisih-box .value { font-size: 14px; font-weight: bold; }
+        .text-green { color: #059669; }
+        .text-red { color: #dc2626; }
+        @media print {
+          body { padding: 10px; }
+        }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>${shopName || 'SISUKA ERP'}</h1>
+        <p>LAPORAN KASIR</p>
+        <p>${data.shift === 'SEMUA' ? 'SEMUA SHIFT' : 'SHIFT ' + data.shift.toUpperCase()}</p>
+        <p>${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+        <p>Kasir: ${currentUser?.name || '-'}</p>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="label">Transaksi</div>
+          <div class="value">${data.totalTransaksi}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Omzet</div>
+          <div class="value">${formatRupiah(data.totalOmzet)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">Tunai</div>
+          <div class="value">${formatRupiah(data.totalTunai)}</div>
+        </div>
+        <div class="stat-box">
+          <div class="label">QRIS/Transfer</div>
+          <div class="value">${formatRupiah(data.totalQRIS)}</div>
+        </div>
+      </div>
+
+      ${data.uangFisik ? `
+      <div class="selisih-box">
+        <div>
+          <div class="label">Uang di Laci</div>
+          <div class="value">${formatRupiah(Number(data.uangFisik))}</div>
+        </div>
+        <div>
+          <div class="label">Selisih</div>
+          <div class="value ${data.selisih >= 0 ? 'text-green' : 'text-red'}">${formatRupiah(data.selisih)}</div>
+        </div>
+        <div>
+          <div class="label">Status</div>
+          <div class="value ${data.selisih === 0 ? 'text-green' : data.selisih > 0 ? 'text-green' : 'text-red'}">${data.selisih === 0 ? '✅ PAS' : data.selisih > 0 ? '✅ LEBIH' : '❌ KURANG'}</div>
+        </div>
+      </div>
+      ` : ''}
+
+      <h3 style="margin-top:15px; font-size:13px;">📋 Daftar Transaksi</h3>
+      <table>
+        <thead>
+          <tr>
+            <th style="width:25%">Waktu</th>
+            <th style="width:20%">Kasir</th>
+            <th style="width:30%; text-align:right">Total</th>
+            <th style="width:25%">Metode</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${data.data.map((sale: any) => `
+            <tr>
+              <td>${new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
+              <td>${sale.kasirName || '-'}</td>
+              <td class="text-right bold">${formatRupiah(sale.totalPrice)}</td>
+              <td>${sale.paymentMethod}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+        <tfoot>
+          <tr class="total-row">
+            <td colspan="2" class="text-right">TOTAL</td>
+            <td class="text-right">${formatRupiah(data.totalOmzet)}</td>
+            <td></td>
+          </tr>
+        </tfoot>
+      </table>
+
+      <div class="footer">
+        Dicetak pada: ${new Date().toLocaleString('id-ID')}
+      </div>
+    </body>
+    </html>
+    `;
+  };
+
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+      {/* Filter Shift */}
+      <div className="flex flex-wrap gap-2 mb-4">
+        <button
+          onClick={() => setShift('SEMUA')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+            shift === 'SEMUA' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}
+        >
+          SEMUA SHIFT
+        </button>
+        <button
+          onClick={() => setShift('Pagi')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+            shift === 'Pagi' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}
+        >
+          🌅 Pagi
+        </button>
+        <button
+          onClick={() => setShift('Siang')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+            shift === 'Siang' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}
+        >
+          ☀️ Siang
+        </button>
+        <button
+          onClick={() => setShift('Malam')}
+          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
+            shift === 'Malam' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
+          }`}
+        >
+          🌙 Malam
+        </button>
+      </div>
+
+      {/* Statistik */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+        <div className="bg-blue-50 p-4 rounded-xl">
+          <p className="text-xs text-gray-500">Transaksi</p>
+          <p className="text-2xl font-bold text-blue-600">{laporan.totalTransaksi}</p>
+        </div>
+        <div className="bg-emerald-50 p-4 rounded-xl">
+          <p className="text-xs text-gray-500">Omzet</p>
+          <p className="text-2xl font-bold text-emerald-600">{formatRupiah(laporan.totalOmzet)}</p>
+        </div>
+        <div className="bg-green-50 p-4 rounded-xl">
+          <p className="text-xs text-gray-500">💵 Tunai</p>
+          <p className="text-xl font-bold text-green-600">{formatRupiah(laporan.totalTunai)}</p>
+        </div>
+        <div className="bg-purple-50 p-4 rounded-xl">
+          <p className="text-xs text-gray-500">📱 QRIS/Transfer</p>
+          <p className="text-xl font-bold text-purple-600">{formatRupiah(laporan.totalQRIS)}</p>
+        </div>
+      </div>
+
+      {/* Cek Uang Fisik */}
+      <div className="border-t pt-4">
+        <div className="flex flex-col sm:flex-row gap-4 items-center">
+          <div className="flex-1">
+            <label className="text-xs font-bold text-gray-500">💰 Uang di Laci</label>
+            <input
+              type="number"
+              value={uangFisik}
+              onChange={(e) => setUangFisik(e.target.value ? Number(e.target.value) : '')}
+              placeholder="Masukkan total uang fisik..."
+              className="w-full border rounded-lg px-3 py-2 text-sm"
+            />
+          </div>
+          <div className="flex-1 text-center">
+            <p className="text-xs text-gray-500">Selisih</p>
+            <p className={`text-xl font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
+              {uangFisik ? formatRupiah(selisih) : '—'}
+            </p>
+            {uangFisik && selisih === 0 && <p className="text-[10px] text-emerald-600">✅ Pas!</p>}
+            {uangFisik && selisih > 0 && <p className="text-[10px] text-emerald-500">✅ Lebih {formatRupiah(selisih)}</p>}
+            {uangFisik && selisih < 0 && <p className="text-[10px] text-red-500">❌ Kurang {formatRupiah(Math.abs(selisih))}</p>}
+          </div>
+        </div>
+      </div>
+
+      {/* Tombol Aksi */}
+      <div className="mt-4 flex flex-wrap gap-2">
+        <button 
+          onClick={() => alert('✅ Setoran telah diselesaikan!')}
+          className="flex-1 min-w-[100px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg"
+        >
+          ✅ Setoran Selesai
+        </button>
+        <button 
+          onClick={handlePrint}
+          className="flex-1 min-w-[100px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
+        >
+          🖨️ Print
+        </button>
+        <button 
+          onClick={handleDownloadPDF}
+          className="flex-1 min-w-[100px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
+        >
+          ⬇️ Download PDF
+        </button>
+        <button 
+          onClick={handleShareWA}
+          className="flex-1 min-w-[100px] bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
+        >
+          📱 Kirim ke WA
+        </button>
+      </div>
+
+      {/* Daftar Transaksi */}
+      {laporan.data && laporan.data.length > 0 && (
+        <div className="mt-4 border-t pt-4">
+          <h4 className="font-bold text-sm text-gray-700 mb-2">📋 Transaksi</h4>
+          <div className="max-h-48 overflow-y-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Waktu</th>
+                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Kasir</th>
+                  <th className="text-right px-2 py-1 text-[10px] font-bold text-gray-400">Total</th>
+                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Metode</th>
+                </tr>
+              </thead>
+              <tbody>
+                {laporan.data.map((sale: any) => (
+                  <tr key={sale.id} className="border-t">
+                    <td className="px-2 py-1 text-xs">{new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
+                    <td className="px-2 py-1 text-xs">{sale.kasirName || '-'}</td>
+                    <td className="px-2 py-1 text-right font-bold">{formatRupiah(sale.totalPrice)}</td>
+                    <td className="px-2 py-1 text-xs">{sale.paymentMethod}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
   // ===== FORMAT RUPIAH =====
   const formatRupiah = (angka: number) => {
@@ -784,6 +1176,12 @@ export default function KasirPage() {
               <Landmark className="w-5 h-5" /> Dashboard Owner
             </button>
           </Link>
+           {/* ===== TAMBAHKAN INI ===== */}
+  <Link href="/kasir/management">
+    <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition">
+      <UserIcon className="w-5 h-5" /> Manajemen Kasir
+    </button>
+  </Link>
         </nav>
         
         <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition mt-auto">
