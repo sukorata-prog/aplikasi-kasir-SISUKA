@@ -52,8 +52,8 @@ interface Expense {
 
 export default function LaporanPage() {
   // ===== STATE =====
-  const [products, setProducts] = useState<Product[]>([]);
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [products, setProducts] = useState<any[]>([]);
+  const [sales, setSales] = useState<any[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [filteredSales, setFilteredSales] = useState<Sale[]>([]);
   const [filteredExpenses, setFilteredExpenses] = useState<Expense[]>([]);

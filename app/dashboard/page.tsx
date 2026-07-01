@@ -15,12 +15,14 @@ interface Product {
   category?: string;
 }
 
+// === TIPE DATA ===
 interface SaleItem {
-  id: string;
+  productId: string;   // ← sesuai dengan LocalSale
   name: string;
   quantity: number;
   price: number;
-  purchasePrice?: number;
+  purchasePrice: number;
+  units: string;
 }
 
 interface Sale {
@@ -102,7 +104,7 @@ export default function DashboardPage() {
       const dataKategori = await dbLocal.categories.toArray();
       
       setProducts(dataProduk);
-      setAllSales(dataPenjualan);
+      setAllSales(dataPenjualan as any);
       setExpenses(dataBiaya);
       setCategories(dataKategori);
 
