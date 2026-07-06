@@ -10,6 +10,9 @@ export interface LocalProduct {
   purchasePrice: number; 
   price: number;         
   is_seasonal: boolean; 
+  supplier?: string;      // Nama supplier
+  minStock?: number;      // Minimum stok peringatan
+  location?: string;      // Lokasi rak penyimpanan
 }
 
 export interface LocalSale {

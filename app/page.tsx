@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';  // <-- TAMBAHKAN INI
+import Link from 'next/link';
 import { ShoppingBag, Package, LayoutDashboard, Lock, ShieldAlert, BadgeInfo, BookOpen } from 'lucide-react';
 
 export default function HomePage() {
@@ -64,18 +64,19 @@ export default function HomePage() {
           <p className="text-[11px] text-neutral-400 group-hover:text-emerald-100">Gerbang harian transaksi kasir, input belanja petani, dan cetak struk thermal.</p>
         </div>
 
-        {/* 2. Modul Inventori Gudang */}
-        <div 
-          onClick={() => handleRouteClick('/stok')}
-          className="bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 hover:border-emerald-600 p-6 rounded-2xl text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 shadow-xl group relative"
-        >
-          <Lock className="absolute top-4 right-4 w-3.5 h-3.5 text-neutral-600 group-hover:text-neutral-300" />
-          <div className="bg-amber-500/10 text-amber-400 group-hover:bg-white group-hover:text-neutral-800 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition">
-            <Package className="w-7 h-7" />
+        {/* 2. Modul Inventori Gudang - LANGSUNG KE /stok */}
+        <Link href="/stok">
+          <div 
+            className="bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 hover:border-emerald-600 p-6 rounded-2xl text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 shadow-xl group relative"
+          >
+            <Lock className="absolute top-4 right-4 w-3.5 h-3.5 text-neutral-600 group-hover:text-neutral-300" />
+            <div className="bg-amber-500/10 text-amber-400 group-hover:bg-white group-hover:text-neutral-800 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4 transition">
+              <Package className="w-7 h-7" />
+            </div>
+            <h2 className="text-lg font-bold mb-1 text-neutral-100 group-hover:text-white">Inventori & Stok</h2>
+            <p className="text-[11px] text-neutral-400 group-hover:text-neutral-100">Manajemen master data barang datang, deteksi stok minimum, dan impor massal Excel.</p>
           </div>
-          <h2 className="text-lg font-bold mb-1 text-neutral-100 group-hover:text-white">Inventori & Stok</h2>
-          <p className="text-[11px] text-neutral-400 group-hover:text-neutral-100">Manajemen master data barang datang, deteksi stok minimum, dan impor massal Excel.</p>
-        </div>
+        </Link>
 
         {/* 3. Modul Akunting & Dashboard */}
         <div 
@@ -90,7 +91,7 @@ export default function HomePage() {
           <p className="text-[11px] text-neutral-400 group-hover:text-neutral-100">Audit keuangan, pencatatan biaya operasional harian, laba bersih, dan kirim laporan WA.</p>
         </div>
 
-        {/* 4. BUKU BESAR - TAMBAHKAN INI */}
+        {/* 4. BUKU BESAR */}
         <div 
           onClick={() => handleRouteClick('/bukubesar')}
           className="bg-neutral-800/50 hover:bg-neutral-800 border border-neutral-700/50 hover:border-orange-500 p-6 rounded-2xl text-center cursor-pointer transition-all duration-300 transform hover:-translate-y-1 shadow-xl group relative"
