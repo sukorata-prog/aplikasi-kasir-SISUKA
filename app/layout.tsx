@@ -58,7 +58,7 @@ export default function RootLayout({
             {/* Nama Merek Toko Aktif */}
             <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleNavClick("/")}>
               <div className="bg-emerald-500 p-1.5 rounded-lg text-white font-black text-xs">AA</div>
-              <span className="font-black text-sm tracking-wider uppercase">ANI AGRO SYSTEM</span>
+              <span className="font-black text-sm tracking-wider uppercase">SISUKA SYSTEM</span>
             </div>
 
             {/* Jajaran Tombol Loncat Halaman */}
