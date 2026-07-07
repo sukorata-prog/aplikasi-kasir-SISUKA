@@ -219,17 +219,35 @@ export default function DashboardPage() {
   };
 
   // === HANDLER KATEGORI ===
-  const handleAddCategory = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-    e.preventDefault();
-    if (!newCategoryName.trim()) return;
-    
-    await dbLocal.categories.add({ 
-      id: `cat-${Date.now()}`, 
-      name: newCategoryName.trim() 
+const handleAddCategory = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+  e.preventDefault();
+
+  console.log("=== HANDLE ADD CATEGORY ===");
+  console.log("Input:", newCategoryName);
+
+  if (!newCategoryName.trim()) {
+    console.log("Kategori kosong!");
+    return;
+  }
+
+  try {
+    await dbLocal.categories.add({
+      id: `cat-${Date.now()}`,
+      name: newCategoryName.trim()
     });
-    setNewCategoryName(''); 
+
+    console.log("✅ Berhasil disimpan!");
+
+    const data = await dbLocal.categories.toArray();
+    console.log("Isi categories:", data);
+
+    setNewCategoryName('');
     await loadBaseData();
-  };
+
+  } catch (err) {
+    console.error("❌ Error:", err);
+  }
+};
 
   const handleDeleteCategory = async (id: string): Promise<void> => {
     if (confirm('Hapus kategori ini?')) {

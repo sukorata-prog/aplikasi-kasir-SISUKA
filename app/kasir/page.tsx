@@ -222,6 +222,10 @@ export default function KasirPage() {
   const [lastTransaction, setLastTransaction] = useState<{
     total: number;
     method: string;
+    cashReceived: number | '';
+    cashReturn: number;
+    invoiceNo: string;
+    items: CartItem[];
   } | null>(null);
 
   // ===== TOTAL HARGA =====
@@ -322,12 +326,12 @@ export default function KasirPage() {
 
   // ===== FUNGSI PRINT STRUK THERMAL =====
   const printThermalReceipt = (invoiceNo: string) => {
-    if (cart.length === 0) {
-      alert('Keranjang kosong!');
+    if (!lastTransaction) {
+      alert('Tidak ada transaksi untuk dicetak!');
       return;
     }
 
-    const itemsHTML = cart.map(item => `
+    const itemsHTML = (lastTransaction?.items || []).map((item: CartItem) => `
       <tr>
         <td style="text-align:left; padding:2px 0;">${item.name}</td>
         <td style="text-align:center; padding:2px 0;">${item.quantity}</td>
@@ -335,101 +339,46 @@ export default function KasirPage() {
       </tr>
     `).join('');
 
+    const total = lastTransaction.total || 0;
+    const method = lastTransaction.method || 'Tunai';
+    const cash = lastTransaction.cashReceived || 0;
+    const change = lastTransaction.cashReturn || 0;
+
     const printContent = `
     <!DOCTYPE html>
     <html>
     <head>
       <title>Struk Belanja</title>
       <style>
-        @page { 
-          size: 80mm auto; 
-          margin: 5px; 
-        }
-        body { 
-          font-family: 'Courier New', monospace;
-          font-size: 12px;
-          padding: 5px;
-          width: 80mm;
-          margin: 0 auto;
-          background: white;
-        }
-        .receipt {
-          width: 100%;
-        }
-        .header {
-          text-align: center;
-          font-weight: bold;
-          font-size: 16px;
-          border-bottom: 1px dashed #000;
-          padding-bottom: 8px;
-          margin-bottom: 8px;
-        }
-        .header .shop-name {
-          font-size: 18px;
-        }
-        .header .sub {
-          font-size: 11px;
-          font-weight: normal;
-        }
-        table {
-          width: 100%;
-          border-collapse: collapse;
-          margin: 5px 0;
-        }
-        th {
-          border-bottom: 1px dashed #000;
-          padding: 4px 0;
-          font-size: 11px;
-          text-align: left;
-        }
-        td {
-          padding: 2px 0;
-          font-size: 11px;
-        }
-        .total {
-          border-top: 1px dashed #000;
-          padding-top: 8px;
-          font-weight: bold;
-          font-size: 14px;
-          text-align: right;
-        }
-        .payment-info {
-          border-top: 1px dashed #000;
-          padding-top: 8px;
-          margin-top: 8px;
-          font-size: 11px;
-        }
-        .footer {
-          text-align: center;
-          border-top: 1px dashed #000;
-          padding-top: 8px;
-          margin-top: 8px;
-          font-size: 10px;
-        }
-        .divider {
-          border-top: 1px dashed #000;
-          margin: 4px 0;
-        }
+        @page { size: 80mm auto; margin: 5px; }
+        body { font-family: 'Courier New', monospace; font-size: 12px; padding: 5px; width: 80mm; margin: 0 auto; background: white; }
+        .receipt { width: 100%; }
+        .header { text-align: center; font-weight: bold; font-size: 16px; border-bottom: 1px dashed #000; padding-bottom: 8px; margin-bottom: 8px; }
+        .header .shop-name { font-size: 18px; }
+        .header .sub { font-size: 11px; font-weight: normal; }
+        table { width: 100%; border-collapse: collapse; margin: 5px 0; }
+        th { border-bottom: 1px dashed #000; padding: 4px 0; font-size: 11px; text-align: left; }
+        td { padding: 2px 0; font-size: 11px; }
+        .total { border-top: 1px dashed #000; padding-top: 8px; font-weight: bold; font-size: 14px; text-align: right; }
+        .payment-info { border-top: 1px dashed #000; padding-top: 8px; margin-top: 8px; font-size: 11px; }
+        .footer { text-align: center; border-top: 1px dashed #000; padding-top: 8px; margin-top: 8px; font-size: 10px; }
+        .divider { border-top: 1px dashed #000; margin: 4px 0; }
         .text-right { text-align: right; }
         .text-center { text-align: center; }
         .text-left { text-align: left; }
         .bold { font-weight: bold; }
-        @media print {
-          body { margin: 0; padding: 5px; }
-          .no-print { display: none; }
-        }
+        @media print { body { margin: 0; padding: 5px; } .no-print { display: none; } }
       </style>
     </head>
     <body>
-      <div class="receipt" id="receipt">
+      <div class="receipt">
         <div class="header">
           <div class="shop-name">${shopName || 'SISUKA ERP'}</div>
-          <div class="sub">${shopName ? 'STRUK BELANJA' : 'SISTEM KASIR'}</div>
+          <div class="sub">STRUK BELANJA</div>
           <div class="sub">No: ${invoiceNo}</div>
           <div class="sub">${new Date().toLocaleString('id-ID')}</div>
           <div class="sub">Kasir: ${currentUser?.name || 'Unknown'}</div>
         </div>
-
         <table>
           <thead>
             <tr>
@@ -438,25 +387,17 @@ export default function KasirPage() {
               <th class="text-right">Total</th>
             </tr>
           </thead>
-          <tbody>
-            ${itemsHTML}
-          </tbody>
+          <tbody>${itemsHTML}</tbody>
         </table>
-
         <div class="divider"></div>
-
-        <div class="total">
-          TOTAL: Rp ${totalPrice.toLocaleString('id-ID')}
-        </div>
-
+        <div class="total">TOTAL: Rp ${total.toLocaleString('id-ID')}</div>
         <div class="payment-info">
-          <div>Metode: ${paymentMethod}</div>
-          ${paymentMethod === 'Tunai' ? `
-            <div>Bayar: Rp ${Number(cashReceived).toLocaleString('id-ID')}</div>
-            <div>Kembali: Rp ${cashReturn.toLocaleString('id-ID')}</div>
+          <div>Metode: ${method}</div>
+          ${method === 'Tunai' ? `
+            <div>Bayar: Rp ${Number(cash).toLocaleString('id-ID')}</div>
+            <div>Kembali: Rp ${Number(change).toLocaleString('id-ID')}</div>
           ` : ''}
         </div>
-
         <div class="footer">
           <div>Terima kasih atas kunjungan Anda!</div>
           <div style="font-size:9px; margin-top:4px;">${shopName || 'SISUKA ERP'} - Sistem Kasir</div>
@@ -464,11 +405,9 @@ export default function KasirPage() {
       </div>
       <script>
         window.onload = function() {
-          setTimeout(function() {
-            window.print();
-          }, 500);
+          setTimeout(function() { window.print(); }, 500);
         }
-      </script>
+      <\/script>
     </body>
     </html>
     `;
@@ -485,17 +424,18 @@ export default function KasirPage() {
   // ===== CHECKOUT =====
   const handleCheckout = async () => {
     if (cart.length === 0) {
-      return alert('Keranjang belanja masih kosong!');
+      alert('Keranjang belanja masih kosong!');
+      return;
     }
 
     if (paymentMethod === 'Tunai') {
       if (cashReceived === '' || Number(cashReceived) < totalPrice) {
-        return alert('Uang tunai yang diterima kurang dari total nilai tagihan!');
+        alert('Jumlah uang tunai tidak mencukupi atau belum diisi!');
+        return;
       }
     }
 
     const invoiceNo = `INV-${Date.now().toString().slice(-6)}`;
-    
     const finalTotalPrice = totalPrice;
     const finalPaymentMethod = paymentMethod;
     const finalCashReceived = cashReceived;
@@ -532,16 +472,18 @@ export default function KasirPage() {
 
       setLastTransaction({
         total: finalTotalPrice,
-        method: finalPaymentMethod
+        method: finalPaymentMethod,
+        cashReceived: finalCashReceived,
+        cashReturn: finalCashReturn,
+        invoiceNo,
+        items: finalCart
       });
       
       setCurrentInvoiceNo(invoiceNo);
       setShowInvoice(true);
-      printThermalReceipt(invoiceNo);
-      
       setCart([]);
       setCashReceived('');
-      loadProductsAndConfig(); 
+      loadProductsAndConfig();
       
     } catch (err) {
       console.error(err);
@@ -549,584 +491,197 @@ export default function KasirPage() {
     }
   };
 
-// ===== KOMPONEN LAPORAN KASIR =====
-const LaporanKasir = () => {
-  const [shift, setShift] = useState<'Pagi' | 'Siang' | 'Malam' | 'SEMUA'>('SEMUA');
-  const [laporan, setLaporan] = useState<any>(null);
-  const [uangFisik, setUangFisik] = useState<number | ''>('');
-  const [loading, setLoading] = useState(true);
+  // ===== KOMPONEN LAPORAN KASIR (disederhanakan) =====
+  const LaporanKasir = () => {
+    const [shift, setShift] = useState<'Pagi' | 'Siang' | 'Malam' | 'SEMUA'>('SEMUA');
+    const [laporan, setLaporan] = useState<any>(null);
+    const [uangFisik, setUangFisik] = useState<number | ''>('');
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadLaporan = async () => {
-      setLoading(true);
-      try {
-        const today = new Date();
-        const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
-        const endOfDay = new Date(today.setHours(23, 59, 59, 999)).getTime();
-        
-        let query = await dbLocal.sales
-          .where('timestamp')
-          .between(startOfDay, endOfDay)
-          .toArray();
+    useEffect(() => {
+      const loadLaporan = async () => {
+        setLoading(true);
+        try {
+          const today = new Date();
+          const startOfDay = new Date(today.setHours(0, 0, 0, 0)).getTime();
+          const endOfDay = new Date(today.setHours(23, 59, 59, 999)).getTime();
+          
+          let query = await dbLocal.sales
+            .where('timestamp')
+            .between(startOfDay, endOfDay)
+            .toArray();
 
-        if (shift !== 'SEMUA') {
-          query = query.filter(s => s.shift === shift);
+          if (shift !== 'SEMUA') {
+            query = query.filter(s => s.shift === shift);
+          }
+
+          const totalTransaksi = query.length;
+          const totalOmzet = query.reduce((sum, s) => sum + s.totalPrice, 0);
+          const totalTunai = query
+            .filter(s => s.paymentMethod === 'Tunai')
+            .reduce((sum, s) => sum + s.totalPrice, 0);
+          const totalQRIS = query
+            .filter(s => s.paymentMethod === 'QRIS / Transfer')
+            .reduce((sum, s) => sum + s.totalPrice, 0);
+
+          setLaporan({
+            totalTransaksi,
+            totalOmzet,
+            totalTunai,
+            totalQRIS,
+            data: query
+          });
+        } catch (err) {
+          console.error('Gagal load laporan:', err);
+        } finally {
+          setLoading(false);
         }
+      };
+      loadLaporan();
+    }, [shift]);
 
-        const totalTransaksi = query.length;
-        const totalOmzet = query.reduce((sum, s) => sum + s.totalPrice, 0);
-        const totalTunai = query
-          .filter(s => s.paymentMethod === 'Tunai')
-          .reduce((sum, s) => sum + s.totalPrice, 0);
-        const totalQRIS = query
-          .filter(s => s.paymentMethod === 'QRIS / Transfer')
-          .reduce((sum, s) => sum + s.totalPrice, 0);
-
-        setLaporan({
-          totalTransaksi,
-          totalOmzet,
-          totalTunai,
-          totalQRIS,
-          data: query
-        });
-      } catch (err) {
-        console.error('Gagal load laporan:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadLaporan();
-  }, [shift]);
-
-  if (loading) {
-    return <div className="text-center py-8 text-gray-400">Loading laporan...</div>;
-  }
-
-  if (!laporan) {
-    return <div className="text-center py-8 text-gray-400">Belum ada data</div>;
-  }
-
-  const selisih = uangFisik ? Number(uangFisik) - laporan.totalTunai : 0;
-
-  // ===== CETAK LAPORAN =====
-  const handlePrint = () => {
-    const printContent = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <title>Laporan Kasir</title>
-      <style>
-        body { font-family: Arial, sans-serif; padding: 20px; }
-        .print-content { max-width: 800px; margin: 0 auto; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
-        th { background-color: #f3f4f6; }
-        .text-center { text-align: center; }
-        .text-right { text-align: right; }
-        .text-xs { font-size: 12px; }
-        .text-sm { font-size: 14px; }
-        .text-xl { font-size: 20px; }
-        .text-2xl { font-size: 24px; }
-        .font-bold { font-weight: bold; }
-        .border-b { border-bottom: 1px solid #000; }
-        .border-t { border-top: 1px solid #000; }
-        .pt-4 { padding-top: 16px; }
-        .pb-4 { padding-bottom: 16px; }
-        .mb-4 { margin-bottom: 16px; }
-        .mt-4 { margin-top: 16px; }
-        .grid { display: grid; }
-        .grid-cols-3 { grid-template-columns: repeat(3, 1fr); }
-        .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
-        .gap-4 { gap: 16px; }
-        .bg-gray-100 { background-color: #f3f4f6; }
-        .text-emerald-600 { color: #059669; }
-        .text-emerald-500 { color: #10b981; }
-        .text-red-500 { color: #ef4444; }
-        .text-gray-400 { color: #9ca3af; }
-        .text-gray-500 { color: #6b7280; }
-        .text-gray-600 { color: #4b5563; }
-        .text-gray-700 { color: #374151; }
-        @media print {
-          body { padding: 10px; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="print-content">
-        <div class="text-center border-b pb-4 mb-4">
-          <h2 class="text-2xl font-bold">${shopName || 'SISUKA ERP'}</h2>
-          <p class="text-sm text-gray-500">LAPORAN KASIR</p>
-          <p class="text-sm text-gray-500">
-            ${shift === 'SEMUA' ? 'SEMUA SHIFT' : `SHIFT ${shift.toUpperCase()}`}
-          </p>
-          <p class="text-sm text-gray-500">
-            ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-          </p>
-          <p class="text-sm text-gray-500">Kasir: ${currentUser?.name || '-'}</p>
-        </div>
-
-        <div class="grid grid-cols-4 gap-4 mb-4">
-          <div class="text-center">
-            <p class="text-xs text-gray-500">Transaksi</p>
-            <p class="text-xl font-bold">${laporan.totalTransaksi}</p>
-          </div>
-          <div class="text-center">
-            <p class="text-xs text-gray-500">Omzet</p>
-            <p class="text-xl font-bold">${formatRupiah(laporan.totalOmzet)}</p>
-          </div>
-          <div class="text-center">
-            <p class="text-xs text-gray-500">Tunai</p>
-            <p class="text-xl font-bold">${formatRupiah(laporan.totalTunai)}</p>
-          </div>
-          <div class="text-center">
-            <p class="text-xs text-gray-500">QRIS/Transfer</p>
-            <p class="text-xl font-bold">${formatRupiah(laporan.totalQRIS)}</p>
-          </div>
-        </div>
-
-        ${uangFisik ? `
-        <div class="border-t pt-4 mb-4">
-          <div class="grid grid-cols-3 gap-4 text-center">
-            <div>
-              <p class="text-xs text-gray-500">Uang di Laci</p>
-              <p class="text-lg font-bold">${formatRupiah(Number(uangFisik))}</p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">Selisih</p>
-              <p class="text-lg font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}">
-                ${formatRupiah(selisih)}
-              </p>
-            </div>
-            <div>
-              <p class="text-xs text-gray-500">Status</p>
-              <p class="text-lg font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}">
-                ${selisih === 0 ? '✅ PAS' : selisih > 0 ? '✅ LEBIH' : '❌ KURANG'}
-              </p>
-            </div>
-          </div>
-        </div>
-        ` : ''}
-
-        <div class="border-t pt-4">
-          <h4 class="font-bold text-sm text-gray-700 mb-2">📋 Daftar Transaksi</h4>
-          <table class="w-full text-sm">
-            <thead class="bg-gray-100">
-              <tr>
-                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Waktu</th>
-                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Kasir</th>
-                <th class="text-right px-2 py-1 text-xs font-bold text-gray-600">Total</th>
-                <th class="text-left px-2 py-1 text-xs font-bold text-gray-600">Metode</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${laporan.data.map((sale: any) => `
-                <tr class="border-t">
-                  <td class="px-2 py-1 text-xs">${new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
-                  <td class="px-2 py-1 text-xs">${sale.kasirName || '-'}</td>
-                  <td class="px-2 py-1 text-right font-bold text-xs">${formatRupiah(sale.totalPrice)}</td>
-                  <td class="px-2 py-1 text-xs">${sale.paymentMethod}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-            <tfoot class="bg-gray-100 font-bold">
-              <tr>
-                <td colspan="2" class="px-2 py-1 text-right text-xs">TOTAL</td>
-                <td class="px-2 py-1 text-right text-xs">${formatRupiah(laporan.totalOmzet)}</td>
-                <td></td>
-              </tr>
-            </tfoot>
-          </table>
-        </div>
-
-        <div class="text-center text-[10px] text-gray-400 border-t pt-4 mt-4">
-          Dicetak pada: ${new Date().toLocaleString('id-ID')}
-        </div>
-      </div>
-    </body>
-    </html>
-    `;
-
-    const printWindow = window.open('', '_blank', 'width=800,height=600');
-    if (printWindow) {
-      printWindow.document.write(printContent);
-      printWindow.document.close();
-    } else {
-      alert('Mohon izinkan popup untuk mencetak laporan!');
+    if (loading) {
+      return <div className="text-center py-8 text-gray-400">Loading laporan...</div>;
     }
-  };
 
-  // ===== FUNGSI DOWNLOAD PDF =====
-  const handleDownloadPDF = () => {
-    const dataLaporan = {
-      shift: shift,
-      totalTransaksi: laporan.totalTransaksi,
-      totalOmzet: laporan.totalOmzet,
-      totalTunai: laporan.totalTunai,
-      totalQRIS: laporan.totalQRIS,
-      data: laporan.data,
-      uangFisik: uangFisik,
-      selisih: selisih
-    };
+    if (!laporan) {
+      return <div className="text-center py-8 text-gray-400">Belum ada data</div>;
+    }
 
-    const printContent = buildLaporanHTML(dataLaporan);
-    const blob = new Blob([printContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `Laporan_Kasir_${new Date().toISOString().split('T')[0]}.html`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    alert('✅ File HTML laporan siap diunduh! Buka file lalu print sebagai PDF.');
-  };
+    const selisih = uangFisik ? Number(uangFisik) - laporan.totalTunai : 0;
 
-  // ===== FUNGSI SHARE KE WA =====
-  const handleShareWA = () => {
-    const dataLaporan = {
-      shift: shift,
-      totalTransaksi: laporan.totalTransaksi,
-      totalOmzet: laporan.totalOmzet,
-      totalTunai: laporan.totalTunai,
-      totalQRIS: laporan.totalQRIS,
-      data: laporan.data,
-      uangFisik: uangFisik,
-      selisih: selisih
-    };
-
-    const message = `📊 *Laporan Kasir SISUKA ERP*
-📅 Tanggal: ${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}
-👤 Kasir: ${currentUser?.name || '-'}
-📋 Shift: ${shift === 'SEMUA' ? 'SEMUA SHIFT' : shift.toUpperCase()}
-📈 Total Transaksi: ${laporan.totalTransaksi}
-💰 Total Omzet: ${formatRupiah(laporan.totalOmzet)}
-💵 Tunai: ${formatRupiah(laporan.totalTunai)}
-📱 QRIS/Transfer: ${formatRupiah(laporan.totalQRIS)}
-${uangFisik ? `💵 Uang di Laci: ${formatRupiah(Number(uangFisik))}` : ''}
-${uangFisik ? `📊 Selisih: ${formatRupiah(selisih)} (${selisih === 0 ? 'PAS' : selisih > 0 ? 'LEBIH' : 'KURANG'})` : ''}
-
-📎 File laporan lengkap terlampir.
-Dicetak dari SISUKA ERP`;
-
-    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
-    alert('✅ WhatsApp terbuka! Silakan kirim pesan dan lampirkan file PDF.');
-  };
-
-  // ===== FUNGSI BUILD HTML LAPORAN =====
-  const buildLaporanHTML = (data: any) => {
-    return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="UTF-8">
-      <title>Laporan Kasir</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          font-family: 'Courier New', monospace; 
-          padding: 20px; 
-          max-width: 800px; 
-          margin: 0 auto;
-          font-size: 12px;
-        }
-        .header { 
-          text-align: center; 
-          border-bottom: 2px solid #000; 
-          padding-bottom: 10px; 
-          margin-bottom: 15px; 
-        }
-        .header h1 { font-size: 20px; }
-        .header p { font-size: 12px; color: #666; }
-        table { 
-          width: 100%; 
-          border-collapse: collapse; 
-          margin: 10px 0; 
-        }
-        th { 
-          background-color: #f0f0f0; 
-          padding: 6px 8px; 
-          text-align: left; 
-          font-size: 11px; 
-          border-bottom: 2px solid #000;
-        }
-        td { 
-          padding: 4px 8px; 
-          border-bottom: 1px solid #ddd; 
-          font-size: 11px; 
-        }
-        .text-right { text-align: right; }
-        .text-center { text-align: center; }
-        .bold { font-weight: bold; }
-        .stat-grid {
-          display: grid;
-          grid-template-columns: repeat(4, 1fr);
-          gap: 10px;
-          margin: 15px 0;
-          text-align: center;
-        }
-        .stat-box {
-          border: 1px solid #ddd;
-          padding: 10px;
-          border-radius: 4px;
-        }
-        .stat-box .label { font-size: 10px; color: #999; }
-        .stat-box .value { font-size: 16px; font-weight: bold; }
-        .total-row { 
-          background-color: #f0f0f0; 
-          font-weight: bold; 
-        }
-        .total-row td { border-top: 2px solid #000; }
-        .footer { 
-          text-align: center; 
-          border-top: 2px solid #000; 
-          padding-top: 10px; 
-          margin-top: 15px; 
-          font-size: 10px; 
-          color: #999; 
-        }
-        .selisih-box {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 10px;
-          margin: 15px 0;
-          text-align: center;
-          border-top: 1px solid #ddd;
-          padding-top: 15px;
-        }
-        .selisih-box .label { font-size: 10px; color: #999; }
-        .selisih-box .value { font-size: 14px; font-weight: bold; }
-        .text-green { color: #059669; }
-        .text-red { color: #dc2626; }
-        @media print {
-          body { padding: 10px; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <h1>${shopName || 'SISUKA ERP'}</h1>
-        <p>LAPORAN KASIR</p>
-        <p>${data.shift === 'SEMUA' ? 'SEMUA SHIFT' : 'SHIFT ' + data.shift.toUpperCase()}</p>
-        <p>${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
-        <p>Kasir: ${currentUser?.name || '-'}</p>
-      </div>
-
-      <div class="stat-grid">
-        <div class="stat-box">
-          <div class="label">Transaksi</div>
-          <div class="value">${data.totalTransaksi}</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Omzet</div>
-          <div class="value">${formatRupiah(data.totalOmzet)}</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">Tunai</div>
-          <div class="value">${formatRupiah(data.totalTunai)}</div>
-        </div>
-        <div class="stat-box">
-          <div class="label">QRIS/Transfer</div>
-          <div class="value">${formatRupiah(data.totalQRIS)}</div>
-        </div>
-      </div>
-
-      ${data.uangFisik ? `
-      <div class="selisih-box">
-        <div>
-          <div class="label">Uang di Laci</div>
-          <div class="value">${formatRupiah(Number(data.uangFisik))}</div>
-        </div>
-        <div>
-          <div class="label">Selisih</div>
-          <div class="value ${data.selisih >= 0 ? 'text-green' : 'text-red'}">${formatRupiah(data.selisih)}</div>
-        </div>
-        <div>
-          <div class="label">Status</div>
-          <div class="value ${data.selisih === 0 ? 'text-green' : data.selisih > 0 ? 'text-green' : 'text-red'}">${data.selisih === 0 ? '✅ PAS' : data.selisih > 0 ? '✅ LEBIH' : '❌ KURANG'}</div>
-        </div>
-      </div>
-      ` : ''}
-
-      <h3 style="margin-top:15px; font-size:13px;">📋 Daftar Transaksi</h3>
-      <table>
-        <thead>
-          <tr>
-            <th style="width:25%">Waktu</th>
-            <th style="width:20%">Kasir</th>
-            <th style="width:30%; text-align:right">Total</th>
-            <th style="width:25%">Metode</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${data.data.map((sale: any) => `
-            <tr>
-              <td>${new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
-              <td>${sale.kasirName || '-'}</td>
-              <td class="text-right bold">${formatRupiah(sale.totalPrice)}</td>
-              <td>${sale.paymentMethod}</td>
-            </tr>
-          `).join('')}
-        </tbody>
-        <tfoot>
-          <tr class="total-row">
-            <td colspan="2" class="text-right">TOTAL</td>
-            <td class="text-right">${formatRupiah(data.totalOmzet)}</td>
-            <td></td>
-          </tr>
-        </tfoot>
-      </table>
-
-      <div class="footer">
-        Dicetak pada: ${new Date().toLocaleString('id-ID')}
-      </div>
-    </body>
-    </html>
-    `;
-  };
-
-  return (
-    <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-      {/* Filter Shift */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        <button
-          onClick={() => setShift('SEMUA')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-            shift === 'SEMUA' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-          }`}
-        >
-          SEMUA SHIFT
-        </button>
-        <button
-          onClick={() => setShift('Pagi')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-            shift === 'Pagi' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-          }`}
-        >
-          🌅 Pagi
-        </button>
-        <button
-          onClick={() => setShift('Siang')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-            shift === 'Siang' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-          }`}
-        >
-          ☀️ Siang
-        </button>
-        <button
-          onClick={() => setShift('Malam')}
-          className={`px-3 py-1.5 rounded-lg text-xs font-bold ${
-            shift === 'Malam' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'
-          }`}
-        >
-          🌙 Malam
-        </button>
-      </div>
-
-      {/* Statistik */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
-        <div className="bg-blue-50 p-4 rounded-xl">
-          <p className="text-xs text-gray-500">Transaksi</p>
-          <p className="text-2xl font-bold text-blue-600">{laporan.totalTransaksi}</p>
-        </div>
-        <div className="bg-emerald-50 p-4 rounded-xl">
-          <p className="text-xs text-gray-500">Omzet</p>
-          <p className="text-2xl font-bold text-emerald-600">{formatRupiah(laporan.totalOmzet)}</p>
-        </div>
-        <div className="bg-green-50 p-4 rounded-xl">
-          <p className="text-xs text-gray-500">💵 Tunai</p>
-          <p className="text-xl font-bold text-green-600">{formatRupiah(laporan.totalTunai)}</p>
-        </div>
-        <div className="bg-purple-50 p-4 rounded-xl">
-          <p className="text-xs text-gray-500">📱 QRIS/Transfer</p>
-          <p className="text-xl font-bold text-purple-600">{formatRupiah(laporan.totalQRIS)}</p>
-        </div>
-      </div>
-
-      {/* Cek Uang Fisik */}
-      <div className="border-t pt-4">
-        <div className="flex flex-col sm:flex-row gap-4 items-center">
-          <div className="flex-1">
-            <label className="text-xs font-bold text-gray-500">💰 Uang di Laci</label>
-            <input
-              type="number"
-              value={uangFisik}
-              onChange={(e) => setUangFisik(e.target.value ? Number(e.target.value) : '')}
-              placeholder="Masukkan total uang fisik..."
-              className="w-full border rounded-lg px-3 py-2 text-sm"
-            />
+    const handlePrintReport = () => {
+      const printContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Laporan Kasir</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          .print-content { max-width: 800px; margin: 0 auto; }
+          table { width: 100%; border-collapse: collapse; }
+          th, td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; }
+          th { background-color: #f3f4f6; }
+          .text-center { text-align: center; }
+          .text-right { text-align: right; }
+          .text-xs { font-size: 12px; }
+          .text-sm { font-size: 14px; }
+          .text-xl { font-size: 20px; }
+          .text-2xl { font-size: 24px; }
+          .font-bold { font-weight: bold; }
+          .border-b { border-bottom: 1px solid #000; }
+          .border-t { border-top: 1px solid #000; }
+          .pt-4 { padding-top: 16px; }
+          .pb-4 { padding-bottom: 16px; }
+          .mb-4 { margin-bottom: 16px; }
+          .mt-4 { margin-top: 16px; }
+          .grid { display: grid; }
+          .grid-cols-4 { grid-template-columns: repeat(4, 1fr); }
+          .gap-4 { gap: 16px; }
+          .bg-gray-100 { background-color: #f3f4f6; }
+          .text-emerald-600 { color: #059669; }
+          .text-gray-500 { color: #6b7280; }
+          @media print { body { padding: 10px; } }
+        </style>
+      </head>
+      <body>
+        <div class="print-content">
+          <div class="text-center border-b pb-4 mb-4">
+            <h2 class="text-2xl font-bold">${shopName || 'SISUKA ERP'}</h2>
+            <p class="text-sm text-gray-500">LAPORAN KASIR</p>
+            <p class="text-sm text-gray-500">${shift === 'SEMUA' ? 'SEMUA SHIFT' : `SHIFT ${shift.toUpperCase()}`}</p>
+            <p class="text-sm text-gray-500">${new Date().toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' })}</p>
+            <p class="text-sm text-gray-500">Kasir: ${currentUser?.name || '-'}</p>
           </div>
-          <div className="flex-1 text-center">
-            <p className="text-xs text-gray-500">Selisih</p>
-            <p className={`text-xl font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}`}>
-              {uangFisik ? formatRupiah(selisih) : '—'}
-            </p>
-            {uangFisik && selisih === 0 && <p className="text-[10px] text-emerald-600">✅ Pas!</p>}
-            {uangFisik && selisih > 0 && <p className="text-[10px] text-emerald-500">✅ Lebih {formatRupiah(selisih)}</p>}
-            {uangFisik && selisih < 0 && <p className="text-[10px] text-red-500">❌ Kurang {formatRupiah(Math.abs(selisih))}</p>}
+          <div class="grid grid-cols-4 gap-4 mb-4">
+            <div class="text-center"><p class="text-xs text-gray-500">Transaksi</p><p class="text-xl font-bold">${laporan.totalTransaksi}</p></div>
+            <div class="text-center"><p class="text-xs text-gray-500">Omzet</p><p class="text-xl font-bold">${formatRupiah(laporan.totalOmzet)}</p></div>
+            <div class="text-center"><p class="text-xs text-gray-500">Tunai</p><p class="text-xl font-bold">${formatRupiah(laporan.totalTunai)}</p></div>
+            <div class="text-center"><p class="text-xs text-gray-500">QRIS/Transfer</p><p class="text-xl font-bold">${formatRupiah(laporan.totalQRIS)}</p></div>
           </div>
-        </div>
-      </div>
-
-      {/* Tombol Aksi */}
-      <div className="mt-4 flex flex-wrap gap-2">
-        <button 
-          onClick={() => alert('✅ Setoran telah diselesaikan!')}
-          className="flex-1 min-w-[100px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg"
-        >
-          ✅ Setoran Selesai
-        </button>
-        <button 
-          onClick={handlePrint}
-          className="flex-1 min-w-[100px] bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
-        >
-          🖨️ Print
-        </button>
-        <button 
-          onClick={handleDownloadPDF}
-          className="flex-1 min-w-[100px] bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
-        >
-          ⬇️ Download PDF
-        </button>
-        <button 
-          onClick={handleShareWA}
-          className="flex-1 min-w-[100px] bg-green-600 hover:bg-green-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2"
-        >
-          📱 Kirim ke WA
-        </button>
-      </div>
-
-      {/* Daftar Transaksi */}
-      {laporan.data && laporan.data.length > 0 && (
-        <div className="mt-4 border-t pt-4">
-          <h4 className="font-bold text-sm text-gray-700 mb-2">📋 Transaksi</h4>
-          <div className="max-h-48 overflow-y-auto">
-            <table className="w-full text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Waktu</th>
-                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Kasir</th>
-                  <th className="text-right px-2 py-1 text-[10px] font-bold text-gray-400">Total</th>
-                  <th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Metode</th>
-                </tr>
-              </thead>
-              <tbody>
-                {laporan.data.map((sale: any) => (
-                  <tr key={sale.id} className="border-t">
-                    <td className="px-2 py-1 text-xs">{new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td>
-                    <td className="px-2 py-1 text-xs">{sale.kasirName || '-'}</td>
-                    <td className="px-2 py-1 text-right font-bold">{formatRupiah(sale.totalPrice)}</td>
-                    <td className="px-2 py-1 text-xs">{sale.paymentMethod}</td>
-                  </tr>
-                ))}
-              </tbody>
+          <div class="border-t pt-4">
+            <h4 class="font-bold text-sm text-gray-700 mb-2">📋 Daftar Transaksi</h4>
+            <table>
+              <thead><tr><th>Waktu</th><th>Kasir</th><th class="text-right">Total</th><th>Metode</th></tr></thead>
+              <tbody>${laporan.data.map((sale: any) => `
+                <tr><td>${new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td><td>${sale.kasirName || '-'}</td><td class="text-right">${formatRupiah(sale.totalPrice)}</td><td>${sale.paymentMethod}</td></tr>
+              `).join('')}</tbody>
+              <tfoot><tr class="bg-gray-100 font-bold"><td colspan="2" class="text-right">TOTAL</td><td class="text-right">${formatRupiah(laporan.totalOmzet)}</td><td></td></tr></tfoot>
             </table>
           </div>
+          <div class="text-center text-[10px] text-gray-400 border-t pt-4 mt-4">Dicetak pada: ${new Date().toLocaleString('id-ID')}</div>
         </div>
-      )}
-    </div>
-  );
-};
+      </body>
+      </html>
+      `;
+
+      const printWindow = window.open('', '_blank', 'width=800,height=600');
+      if (printWindow) {
+        printWindow.document.write(printContent);
+        printWindow.document.close();
+      } else {
+        alert('Mohon izinkan popup untuk mencetak laporan!');
+      }
+    };
+
+    return (
+      <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+        {/* Filter Shift */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          <button onClick={() => setShift('SEMUA')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${shift === 'SEMUA' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}`}>SEMUA SHIFT</button>
+          <button onClick={() => setShift('Pagi')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${shift === 'Pagi' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}`}>🌅 Pagi</button>
+          <button onClick={() => setShift('Siang')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${shift === 'Siang' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}`}>☀️ Siang</button>
+          <button onClick={() => setShift('Malam')} className={`px-3 py-1.5 rounded-lg text-xs font-bold ${shift === 'Malam' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600'}`}>🌙 Malam</button>
+        </div>
+
+        {/* Statistik */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+          <div className="bg-blue-50 p-4 rounded-xl"><p className="text-xs text-gray-500">Transaksi</p><p className="text-2xl font-bold text-blue-600">{laporan.totalTransaksi}</p></div>
+          <div className="bg-emerald-50 p-4 rounded-xl"><p className="text-xs text-gray-500">Omzet</p><p className="text-2xl font-bold text-emerald-600">{formatRupiah(laporan.totalOmzet)}</p></div>
+          <div className="bg-green-50 p-4 rounded-xl"><p className="text-xs text-gray-500">💵 Tunai</p><p className="text-xl font-bold text-green-600">{formatRupiah(laporan.totalTunai)}</p></div>
+          <div className="bg-purple-50 p-4 rounded-xl"><p className="text-xs text-gray-500">📱 QRIS/Transfer</p><p className="text-xl font-bold text-purple-600">{formatRupiah(laporan.totalQRIS)}</p></div>
+        </div>
+
+        {/* Cek Uang Fisik */}
+        <div className="border-t pt-4">
+          <div className="flex flex-col sm:flex-row gap-4 items-center">
+            <div className="flex-1">
+              <label className="text-xs font-bold text-gray-500">💰 Uang di Laci</label>
+              <input type="number" value={uangFisik} onChange={(e) => setUangFisik(e.target.value ? Number(e.target.value) : '')} placeholder="Masukkan total uang fisik..." className="w-full border rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div className="flex-1 text-center">
+              <p className="text-xs text-gray-500">Selisih</p>
+              <p className={`text-xl font-bold ${selisih === 0 ? 'text-emerald-600' : selisih > 0 ? 'text-emerald-500' : 'text-red-500'}`}>{uangFisik ? formatRupiah(selisih) : '—'}</p>
+              {uangFisik && selisih === 0 && <p className="text-[10px] text-emerald-600">✅ Pas!</p>}
+              {uangFisik && selisih > 0 && <p className="text-[10px] text-emerald-500">✅ Lebih {formatRupiah(selisih)}</p>}
+              {uangFisik && selisih < 0 && <p className="text-[10px] text-red-500">❌ Kurang {formatRupiah(Math.abs(selisih))}</p>}
+            </div>
+          </div>
+        </div>
+
+        {/* Tombol Aksi */}
+        <div className="mt-4 flex flex-wrap gap-2">
+          <button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg">✅ Setoran Selesai</button>
+          <button onClick={handlePrintReport} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2">🖨️ Print</button>
+        </div>
+
+        {/* Daftar Transaksi */}
+        {laporan.data && laporan.data.length > 0 && (
+          <div className="mt-4 border-t pt-4">
+            <h4 className="font-bold text-sm text-gray-700 mb-2">📋 Transaksi</h4>
+            <div className="max-h-48 overflow-y-auto">
+              <table className="w-full text-sm">
+                <thead className="bg-gray-50"><tr><th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Waktu</th><th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Kasir</th><th className="text-right px-2 py-1 text-[10px] font-bold text-gray-400">Total</th><th className="text-left px-2 py-1 text-[10px] font-bold text-gray-400">Metode</th></tr></thead>
+                <tbody>{laporan.data.map((sale: any) => (
+                  <tr key={sale.id} className="border-t"><td className="px-2 py-1 text-xs">{new Date(sale.timestamp).toLocaleTimeString('id-ID')}</td><td className="px-2 py-1 text-xs">{sale.kasirName || '-'}</td><td className="px-2 py-1 text-right font-bold">{formatRupiah(sale.totalPrice)}</td><td className="px-2 py-1 text-xs">{sale.paymentMethod}</td></tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ===== FORMAT RUPIAH =====
   const formatRupiah = (angka: number) => {
@@ -1153,40 +708,19 @@ Dicetak dari SISUKA ERP`;
       {/* ===== SIDEBAR ===== */}
       <div className="w-64 bg-emerald-700 text-white p-4 flex flex-col flex-shrink-0 print:hidden">
         <div className="mb-8">
-          {logoUrl && (
-            <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-full mb-2" />
-          )}
+          {logoUrl && <img src={logoUrl} alt="Logo" className="w-12 h-12 rounded-full mb-2" />}
           <h1 className="text-xl font-bold">{shopName}</h1>
           <p className="text-xs text-emerald-200">POS System</p>
         </div>
         
         <nav className="flex-1 space-y-2">
-          <Link href="/kasir">
-            <button className="w-full bg-emerald-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-3">
-              <ShoppingCart className="w-5 h-5" /> Kasir Jualan
-            </button>
-          </Link>
-          <Link href="/stok">
-            <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition">
-              <Package className="w-5 h-5" /> Stok Gudang
-            </button>
-          </Link>
-          <Link href="/">
-            <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition">
-              <Landmark className="w-5 h-5" /> Dashboard Owner
-            </button>
-          </Link>
-           {/* ===== TAMBAHKAN INI ===== */}
-  <Link href="/kasir/management">
-    <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition">
-      <UserIcon className="w-5 h-5" /> Manajemen Kasir
-    </button>
-  </Link>
+          <Link href="/kasir"><button className="w-full bg-emerald-600 text-white px-4 py-2.5 rounded-lg flex items-center gap-3"><ShoppingCart className="w-5 h-5" /> Kasir Jualan</button></Link>
+          <Link href="/stok"><button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition"><Package className="w-5 h-5" /> Stok Gudang</button></Link>
+          <Link href="/"><button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition"><Landmark className="w-5 h-5" /> Dashboard Owner</button></Link>
+          <Link href="/kasir/management"><button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition"><UserIcon className="w-5 h-5" /> Manajemen Kasir</button></Link>
         </nav>
         
-        <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition mt-auto">
-          <LogOut className="w-5 h-5" /> Keluar
-        </button>
+        <button className="w-full hover:bg-emerald-600 px-4 py-2.5 rounded-lg flex items-center gap-3 transition mt-auto"><LogOut className="w-5 h-5" /> Keluar</button>
       </div>
 
       {/* ===== MAIN CONTENT ===== */}
@@ -1194,31 +728,12 @@ Dicetak dari SISUKA ERP`;
         
         {/* TAB NAVIGATION */}
         <div className="flex gap-2 mb-4 bg-white p-2 rounded-xl border border-gray-200">
-          <button
-            onClick={() => setActiveTab('kasir')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
-              activeTab === 'kasir' 
-                ? 'bg-emerald-600 text-white' 
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            🛒 Kasir
-          </button>
-          <button
-            onClick={() => setActiveTab('laporan')}
-            className={`px-4 py-2 rounded-lg text-sm font-bold transition ${
-              activeTab === 'laporan' 
-                ? 'bg-emerald-600 text-white' 
-                : 'text-gray-500 hover:bg-gray-100'
-            }`}
-          >
-            📊 Laporan Kasir
-          </button>
+          <button onClick={() => setActiveTab('kasir')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'kasir' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>🛒 Kasir</button>
+          <button onClick={() => setActiveTab('laporan')} className={`px-4 py-2 rounded-lg text-sm font-bold transition ${activeTab === 'laporan' ? 'bg-emerald-600 text-white' : 'text-gray-500 hover:bg-gray-100'}`}>📊 Laporan Kasir</button>
         </div>
 
         {/* KONTEN */}
         {activeTab === 'kasir' ? (
-          // ===== KONTEN KASIR =====
           <>
             {/* HEADER */}
             <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center mb-4">
@@ -1226,68 +741,17 @@ Dicetak dari SISUKA ERP`;
                 <h2 className="text-xl font-bold text-gray-800">🛒 Kasir</h2>
                 <div className="relative w-64">
                   <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="text"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    placeholder="Cari produk (nama/SKU)..."
-                    className="pl-9 pr-4 py-2 border rounded-lg w-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                  />
+                  <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Cari produk (nama/SKU)..." className="pl-9 pr-4 py-2 border rounded-lg w-full text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500" />
                 </div>
               </div>
-
               <div className="flex items-center gap-3 flex-wrap">
-                <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">
-                  👤 {currentUser.name} - Shift {currentUser.shift}
-                </span>
-                <button
-                  onClick={() => {
-                    setIsLoggedIn(false);
-                    setCurrentUser(null);
-                  }}
-                  className="text-xs text-red-500 hover:text-red-700 font-bold"
-                >
-                  Logout
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (cart.length > 0) {
-                      printThermalReceipt(`INV-${Date.now().toString().slice(-6)}`);
-                    } else {
-                      alert('Keranjang kosong!');
-                    }
-                  }}
-                  className="bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"
-                >
-                  <Printer className="w-4 h-4" /> CETAK STRUK
-                </button>
-
+                <span className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">👤 {currentUser.name} - Shift {currentUser.shift}</span>
+                <button onClick={() => { setIsLoggedIn(false); setCurrentUser(null); }} className="text-xs text-red-500 hover:text-red-700 font-bold">Logout</button>
+                <button onClick={() => { if (cart.length > 0) { printThermalReceipt(`INV-${Date.now().toString().slice(-6)}`); } else { alert('Keranjang kosong!'); } }} className="bg-white hover:bg-gray-100 text-gray-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"><Printer className="w-4 h-4" /> CETAK STRUK</button>
                 <div className="flex flex-wrap bg-gray-200/80 p-1 rounded-xl border border-gray-300 text-[10px] font-bold shadow-inner gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedCategory('ALL')}
-                    className={`px-3 py-1.5 rounded-lg transition ${
-                      selectedCategory === 'ALL' 
-                        ? 'bg-white text-emerald-700 shadow-sm' 
-                        : 'text-gray-500 hover:text-gray-800'
-                    }`}
-                  >
-                    ALL
-                  </button>
+                  <button type="button" onClick={() => setSelectedCategory('ALL')} className={`px-3 py-1.5 rounded-lg transition ${selectedCategory === 'ALL' ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>ALL</button>
                   {categories.map((cat) => (
-                    <button
-                      type="button"
-                      key={cat.id}
-                      onClick={() => setSelectedCategory(cat.name)}
-                      className={`px-3 py-1.5 rounded-lg transition uppercase ${
-                        selectedCategory === cat.name 
-                          ? 'bg-white text-emerald-700 shadow-sm' 
-                          : 'text-gray-500 hover:text-gray-800'
-                      }`}
-                    >
-                      {cat.name}
-                    </button>
+                    <button type="button" key={cat.id} onClick={() => setSelectedCategory(cat.name)} className={`px-3 py-1.5 rounded-lg transition uppercase ${selectedCategory === cat.name ? 'bg-white text-emerald-700 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`}>{cat.name}</button>
                   ))}
                 </div>
               </div>
@@ -1296,40 +760,23 @@ Dicetak dari SISUKA ERP`;
             {/* GRID PRODUK */}
             <div className="flex-1 overflow-y-auto grid grid-cols-1 md:grid-cols-3 gap-4 pb-4">
               {filteredProducts.length === 0 ? (
-                <div className="col-span-3 flex flex-col items-center justify-center text-gray-400 h-64">
-                  <Package className="w-12 h-12 mb-2 stroke-1" />
-                  <p className="text-sm">Produk tidak ditemukan di kategori ini</p>
-                </div>
+                <div className="col-span-3 flex flex-col items-center justify-center text-gray-400 h-64"><Package className="w-12 h-12 mb-2 stroke-1" /><p className="text-sm">Produk tidak ditemukan di kategori ini</p></div>
               ) : (
                 filteredProducts.map((product) => (
-                  <div 
-                    key={product.id} 
-                    onClick={() => addToCart(product)}
-                    className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:border-emerald-500 cursor-pointer transition flex flex-col justify-between"
-                  >
+                  <div key={product.id} onClick={() => addToCart(product)} className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm hover:border-emerald-500 cursor-pointer transition flex flex-col justify-between">
                     <div>
                       <div className="flex justify-between items-start mb-2">
-                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono font-bold border">
-                          {product.sku}
-                        </span>
-                        <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">
-                          {product.category}
-                        </span>
+                        <span className="text-[10px] bg-gray-100 text-gray-600 px-2 py-0.5 rounded font-mono font-bold border">{product.sku}</span>
+                        <span className="text-[9px] bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded font-bold uppercase tracking-wider">{product.category}</span>
                       </div>
                       <h3 className="font-bold text-gray-800 text-xs line-clamp-2">{product.name}</h3>
                     </div>
                     <div className="mt-4 flex justify-between items-end border-t pt-2 border-gray-100">
                       <div>
-                        <p className={`text-[10px] font-bold ${product.stock <= 5 ? 'text-red-500' : 'text-gray-400'}`}>
-                          Stok: {product.stock} {product.units}
-                        </p>
-                        <p className="text-sm font-black text-emerald-600">
-                          Rp {product.price.toLocaleString('id-ID')}
-                        </p>
+                        <p className={`text-[10px] font-bold ${product.stock <= 5 ? 'text-red-500' : 'text-gray-400'}`}>Stok: {product.stock} {product.units}</p>
+                        <p className="text-sm font-black text-emerald-600">Rp {product.price.toLocaleString('id-ID')}</p>
                       </div>
-                      <button type="button" className="bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-bold rounded-lg">
-                        + Pilih
-                      </button>
+                      <button type="button" className="bg-emerald-50 text-emerald-700 px-2.5 py-1 text-xs font-bold rounded-lg">+ Pilih</button>
                     </div>
                   </div>
                 ))
@@ -1337,60 +784,29 @@ Dicetak dari SISUKA ERP`;
             </div>
           </>
         ) : (
-          // ===== KONTEN LAPORAN KASIR =====
-          <div className="flex-1 overflow-y-auto">
-            <LaporanKasir />
-          </div>
+          <div className="flex-1 overflow-y-auto"><LaporanKasir /></div>
         )}
       </div>
 
       {/* ===== KERANJANG ===== */}
       <div className="w-96 bg-white border-l border-gray-200 flex flex-col shadow-xl print:hidden">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-emerald-50">
-          <div className="flex items-center gap-2">
-            <ShoppingCart className="text-emerald-700 w-5 h-5" />
-            <h2 className="font-black text-emerald-900 text-base">Keranjang POS</h2>
-          </div>
-          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
-            {cart.length} Item
-          </span>
+          <div className="flex items-center gap-2"><ShoppingCart className="text-emerald-700 w-5 h-5" /><h2 className="font-black text-emerald-900 text-base">Keranjang POS</h2></div>
+          <span className="bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{cart.length} Item</span>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-gray-400">
-              <ShoppingBag className="w-12 h-12 mb-2 stroke-1 text-gray-300" />
-              <p className="text-xs">Kasir siap melayani pembeli</p>
-            </div>
+            <div className="h-full flex flex-col items-center justify-center text-gray-400"><ShoppingBag className="w-12 h-12 mb-2 stroke-1 text-gray-300" /><p className="text-xs">Kasir siap melayani pembeli</p></div>
           ) : (
             cart.map((item) => (
               <div key={item.id} className="flex justify-between items-center bg-gray-50 p-2.5 rounded-xl border border-gray-200">
-                <div className="max-w-[170px]">
-                  <h4 className="font-bold text-xs text-gray-800 truncate">{item.name}</h4>
-                  <p className="text-[10px] font-bold text-emerald-600">
-                    Rp {item.price.toLocaleString('id-ID')}
-                  </p>
-                </div>
+                <div className="max-w-[170px]"><h4 className="font-bold text-xs text-gray-800 truncate">{item.name}</h4><p className="text-[10px] font-bold text-emerald-600">Rp {item.price.toLocaleString('id-ID')}</p></div>
                 <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => updateQuantity(item.id, -1)}
-                    className="bg-gray-200 hover:bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center"
-                  >
-                    <Minus className="w-3 h-3" />
-                  </button>
+                  <button onClick={() => updateQuantity(item.id, -1)} className="bg-gray-200 hover:bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center"><Minus className="w-3 h-3" /></button>
                   <span className="font-bold w-5 text-center text-sm">{item.quantity}</span>
-                  <button
-                    onClick={() => updateQuantity(item.id, 1)}
-                    className="bg-gray-200 hover:bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center"
-                  >
-                    <Plus className="w-3 h-3" />
-                  </button>
-                  <button
-                    onClick={() => removeFromCart(item.id)}
-                    className="text-red-400 hover:text-red-600 ml-1"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+                  <button onClick={() => updateQuantity(item.id, 1)} className="bg-gray-200 hover:bg-gray-300 rounded-full w-6 h-6 flex items-center justify-center"><Plus className="w-3 h-3" /></button>
+                  <button onClick={() => removeFromCart(item.id)} className="text-red-400 hover:text-red-600 ml-1"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))
@@ -1399,74 +815,23 @@ Dicetak dari SISUKA ERP`;
 
         {/* ===== BAGIAN PEMBAYARAN ===== */}
         <div className="p-4 border-t border-gray-200 bg-white">
-          <div className="flex justify-between mb-1">
-            <span className="text-sm text-gray-500">Subtotal</span>
-            <span className="font-bold text-sm">{formatRupiah(totalPrice)}</span>
-          </div>
-          <div className="flex justify-between mb-3">
-            <span className="text-sm text-gray-500">Total</span>
-            <span className="text-lg font-black text-emerald-600">{formatRupiah(totalPrice)}</span>
-          </div>
+          <div className="flex justify-between mb-1"><span className="text-sm text-gray-500">Subtotal</span><span className="font-bold text-sm">{formatRupiah(totalPrice)}</span></div>
+          <div className="flex justify-between mb-3"><span className="text-sm text-gray-500">Total</span><span className="text-lg font-black text-emerald-600">{formatRupiah(totalPrice)}</span></div>
 
-          {/* Tombol Metode Pembayaran */}
           <div className="flex gap-2 mb-3">
-            <button
-              onClick={() => setPaymentMethod('Tunai')}
-              className={`flex-1 py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-1 ${
-                paymentMethod === 'Tunai'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }`}
-            >
-              <Banknote className="w-4 h-4" /> Tunai
-            </button>
-            <button
-              onClick={() => setPaymentMethod('QRIS / Transfer')}
-              className={`flex-1 py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-1 ${
-                paymentMethod === 'QRIS / Transfer'
-                  ? 'bg-emerald-600 text-white'
-                  : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-              }`}
-            >
-              <QrCode className="w-4 h-4" /> QRIS
-            </button>
+            <button onClick={() => setPaymentMethod('Tunai')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-1 ${paymentMethod === 'Tunai' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}><Banknote className="w-4 h-4" /> Tunai</button>
+            <button onClick={() => setPaymentMethod('QRIS / Transfer')} className={`flex-1 py-2 rounded-lg font-bold text-sm transition flex items-center justify-center gap-1 ${paymentMethod === 'QRIS / Transfer' ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'}`}><QrCode className="w-4 h-4" /> QRIS</button>
           </div>
 
-          {/* Input Uang Tunai */}
           {paymentMethod === 'Tunai' && (
             <div className="mt-2">
-              <input
-                type="number"
-                value={cashReceived}
-                onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : '')}
-                placeholder="Jumlah uang diterima"
-                className="w-full border rounded-lg px-3 py-2 text-sm text-black font-bold placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500"
-                style={{ color: '#000000' }}
-              />
-              {cashReceived !== '' && Number(cashReceived) >= totalPrice && (
-                <p className="text-sm text-emerald-600 mt-1 font-bold">
-                  Kembali: {formatRupiah(cashReturn)}
-                </p>
-              )}
-              {cashReceived !== '' && Number(cashReceived) < totalPrice && (
-                <p className="text-sm text-red-500 mt-1 font-bold">
-                  Kurang: {formatRupiah(totalPrice - Number(cashReceived))}
-                </p>
-              )}
+              <input type="number" value={cashReceived} onChange={(e) => setCashReceived(e.target.value ? Number(e.target.value) : '')} placeholder="Jumlah uang diterima" className="w-full border rounded-lg px-3 py-2 text-sm text-black font-bold placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-emerald-500" style={{ color: '#000000' }} />
+              {cashReceived !== '' && Number(cashReceived) >= totalPrice && <p className="text-sm text-emerald-600 mt-1 font-bold">Kembali: {formatRupiah(cashReturn)}</p>}
+              {cashReceived !== '' && Number(cashReceived) < totalPrice && <p className="text-sm text-red-500 mt-1 font-bold">Kurang: {formatRupiah(totalPrice - Number(cashReceived))}</p>}
             </div>
           )}
 
-          <button
-            onClick={handleCheckout}
-            disabled={cart.length === 0}
-            className={`w-full mt-3 py-2.5 rounded-lg font-bold text-white ${
-              cart.length === 0
-                ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-emerald-600 hover:bg-emerald-700'
-            }`}
-          >
-            Bayar Sekarang
-          </button>
+          <button onClick={handleCheckout} disabled={cart.length === 0} className={`w-full mt-3 py-2.5 rounded-lg font-bold text-white ${cart.length === 0 ? 'bg-gray-300 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700'}`}>Bayar Sekarang</button>
         </div>
       </div>
 
@@ -1475,31 +840,31 @@ Dicetak dari SISUKA ERP`;
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
             <div className="text-center mb-4">
-              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Check className="w-8 h-8 text-emerald-600" />
-              </div>
+              <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-3"><Check className="w-8 h-8 text-emerald-600" /></div>
               <h3 className="text-xl font-bold text-gray-800">Transaksi Berhasil!</h3>
               <p className="text-sm text-gray-500">No. Invoice: {currentInvoiceNo}</p>
             </div>
             
             <div className="bg-gray-50 p-4 rounded-xl mb-4">
               <p className="text-sm text-gray-600">Total Pembayaran</p>
-              <p className="text-2xl font-bold text-emerald-600">
-                {formatRupiah(lastTransaction?.total || 0)}
-              </p>
+              <p className="text-2xl font-bold text-emerald-600">{formatRupiah(lastTransaction?.total || 0)}</p>
               <p className="text-xs text-gray-400 mt-1">Metode: {lastTransaction?.method || '-'}</p>
               <p className="text-xs text-gray-400">Kasir: {currentUser?.name || '-'}</p>
+              {lastTransaction?.method === 'Tunai' && (
+                <p className="text-sm"><span className="font-semibold">Tunai </span>{formatRupiah(Number(lastTransaction?.cashReceived || 0))}</p>
+              )}
+              <div className="mt-4 p-4 rounded-xl bg-blue-50 border border-blue-200">
+                <p className="text-sm text-gray-600 text-center">UANG KEMBALIAN</p>
+                {lastTransaction?.method === 'Tunai' && (
+                  <p className="text-4xl font-extrabold text-blue-700 text-center">{formatRupiah(lastTransaction?.cashReturn || 0)}</p>
+                )}
+              </div>
             </div>
 
-            <button
-              onClick={() => {
-                setShowInvoice(false);
-                setLastTransaction(null);
-              }}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg"
-            >
-              Tutup
-            </button>
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => { printThermalReceipt(currentInvoiceNo); }} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2.5 rounded-lg">🖨️ Cetak Struk</button>
+              <button onClick={() => { setShowInvoice(false); setLastTransaction(null); setCart([]); setCashReceived(''); }} className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg">✅ Transaksi Baru</button>
+            </div>
           </div>
         </div>
       )}
