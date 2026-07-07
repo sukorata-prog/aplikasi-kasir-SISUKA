@@ -44,3 +44,5 @@ next-env.d.ts
 SISUKA.app/
 *.zip
 SISUKA_ERP_OFFLINE/
+# Local Netlify folder
+.netlify

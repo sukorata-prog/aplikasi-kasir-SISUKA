@@ -17,7 +17,7 @@ interface Product {
 
 // === TIPE DATA ===
 interface SaleItem {
-  productId: string;   // ← sesuai dengan LocalSale
+  productId: string;
   name: string;
   quantity: number;
   price: number;
@@ -219,35 +219,35 @@ export default function DashboardPage() {
   };
 
   // === HANDLER KATEGORI ===
-const handleAddCategory = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
-  e.preventDefault();
+  const handleAddCategory = async (e: FormEvent<HTMLFormElement>): Promise<void> => {
+    e.preventDefault();
 
-  console.log("=== HANDLE ADD CATEGORY ===");
-  console.log("Input:", newCategoryName);
+    console.log("=== HANDLE ADD CATEGORY ===");
+    console.log("Input:", newCategoryName);
 
-  if (!newCategoryName.trim()) {
-    console.log("Kategori kosong!");
-    return;
-  }
+    if (!newCategoryName.trim()) {
+      console.log("Kategori kosong!");
+      return;
+    }
 
-  try {
-    await dbLocal.categories.add({
-      id: `cat-${Date.now()}`,
-      name: newCategoryName.trim()
-    });
+    try {
+      await dbLocal.categories.add({
+        id: `cat-${Date.now()}`,
+        name: newCategoryName.trim()
+      });
 
-    console.log("✅ Berhasil disimpan!");
+      console.log("✅ Berhasil disimpan!");
 
-    const data = await dbLocal.categories.toArray();
-    console.log("Isi categories:", data);
+      const data = await dbLocal.categories.toArray();
+      console.log("Isi categories:", data);
 
-    setNewCategoryName('');
-    await loadBaseData();
+      setNewCategoryName('');
+      await loadBaseData();
 
-  } catch (err) {
-    console.error("❌ Error:", err);
-  }
-};
+    } catch (err) {
+      console.error("❌ Error:", err);
+    }
+  };
 
   const handleDeleteCategory = async (id: string): Promise<void> => {
     if (confirm('Hapus kategori ini?')) {
@@ -257,63 +257,63 @@ const handleAddCategory = async (e: FormEvent<HTMLFormElement>): Promise<void> =
   };
 
   // === HANDLER BIAYA OPERASIONAL ===
-const handleAddExpense = async (e: React.FormEvent) => {
-  e.preventDefault();
-  if (!expenseAmount || isNaN(Number(expenseAmount))) {
-    alert('Nominal pengeluaran wajib diisi angka!');
-    return;
-  }
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!expenseAmount || isNaN(Number(expenseAmount))) {
+      alert('Nominal pengeluaran wajib diisi angka!');
+      return;
+    }
 
-  const nominal = Number(expenseAmount);
-  
-  // ===== SIMPAN KE EXPENSES =====
-  await dbLocal.expenses.add({ 
-    id: `EXP-${Date.now()}`, 
-    timestamp: Date.now(), 
-    type: expenseType, 
-    amount: nominal, 
-    note: expenseNote 
-  });
-
-  // ===== 🔥 TAMBAHKAN: SIMPAN KE JURNAL BUKU BESAR =====
-  try {
-    const today = new Date().toISOString().split('T')[0];
+    const nominal = Number(expenseAmount);
     
-    // Entry Debit (Beban)
-    await dbLocal.jurnal?.add({
-      id: `JRN-${Date.now()}`,
-      tanggal: today,
-      keterangan: `Biaya ${expenseType}`,
-      akun: expenseType, // Misal: 'Beban Gaji', 'Beban Listrik & Air', dll
-      debit: nominal,
-      kredit: 0,
-      ref: 'Kas',
-      createdAt: Date.now()
+    // ===== SIMPAN KE EXPENSES =====
+    await dbLocal.expenses.add({ 
+      id: `EXP-${Date.now()}`, 
+      timestamp: Date.now(), 
+      type: expenseType, 
+      amount: nominal, 
+      note: expenseNote 
     });
 
-    // Entry Kredit (Kas)
-    await dbLocal.jurnal?.add({
-      id: `JRN-${Date.now()}-K`,
-      tanggal: today,
-      keterangan: `Biaya ${expenseType}`,
-      akun: 'Kas',
-      debit: 0,
-      kredit: nominal,
-      ref: expenseType,
-      createdAt: Date.now()
-    });
+    // ===== 🔥 TAMBAHKAN: SIMPAN KE JURNAL BUKU BESAR =====
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Entry Debit (Beban)
+      await dbLocal.jurnal?.add({
+        id: `JRN-${Date.now()}`,
+        tanggal: today,
+        keterangan: `Biaya ${expenseType}`,
+        akun: expenseType,
+        debit: nominal,
+        kredit: 0,
+        ref: 'Kas',
+        createdAt: Date.now()
+      });
 
-    console.log('✅ Jurnal biaya berhasil dicatat!');
-  } catch (err) {
-    console.error('Gagal menyimpan jurnal biaya:', err);
-  }
+      // Entry Kredit (Kas)
+      await dbLocal.jurnal?.add({
+        id: `JRN-${Date.now()}-K`,
+        tanggal: today,
+        keterangan: `Biaya ${expenseType}`,
+        akun: 'Kas',
+        debit: 0,
+        kredit: nominal,
+        ref: expenseType,
+        createdAt: Date.now()
+      });
 
-  // ===== RESET FORM =====
-  setExpenseAmount(''); 
-  setExpenseNote(''); 
-  await loadBaseData();
-  alert('Catatan pengeluaran resmi dikunci ke dalam jurnal!');
-};
+      console.log('✅ Jurnal biaya berhasil dicatat!');
+    } catch (err) {
+      console.error('Gagal menyimpan jurnal biaya:', err);
+    }
+
+    // ===== RESET FORM =====
+    setExpenseAmount(''); 
+    setExpenseNote(''); 
+    await loadBaseData();
+    alert('Catatan pengeluaran resmi dikunci ke dalam jurnal!');
+  };
 
   const handleDeleteExpense = async (id: string): Promise<void> => {
     if (confirm('Hapus log catatan pengeluaran ini?')) {
@@ -340,30 +340,29 @@ const handleAddExpense = async (e: React.FormEvent) => {
           </div>
           
           <div className="flex items-center gap-3">
-    {/* TOMBOL LAPORAN - TAMBAHKAN INI */}
-    <Link href="/laporan">
-      <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5">
-        <FileText className="w-4 h-4" /> LAPORAN
-      </button>
-    </Link>
-    
-    {!isPremiumUnlocked && (
-      <button 
-        type="button"
-        onClick={() => setShowSecretLicenseModal(true)} 
-        className="text-[10px] text-gray-300 hover:text-gray-400 font-medium tracking-widest uppercase px-2 py-1 border border-gray-200/50 rounded-md transition"
-      >
-        sys_v2.0
-      </button>
-    )}
-    <button 
-      type="button" 
-      onClick={() => window.print()} 
-      className="bg-white hover:bg-gray-100 text-blue-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"
-    >
-      <FileText className="w-4 h-4" /> PRINT LAPORAN
-    </button>
-</div>
+            <Link href="/laporan">
+              <button className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-4 py-2 rounded-xl flex items-center gap-1.5">
+                <FileText className="w-4 h-4" /> LAPORAN
+              </button>
+            </Link>
+            
+            {!isPremiumUnlocked && (
+              <button 
+                type="button"
+                onClick={() => setShowSecretLicenseModal(true)} 
+                className="text-[10px] text-gray-300 hover:text-gray-400 font-medium tracking-widest uppercase px-2 py-1 border border-gray-200/50 rounded-md transition"
+              >
+                sys_v2.0
+              </button>
+            )}
+            <button 
+              type="button" 
+              onClick={() => window.print()} 
+              className="bg-white hover:bg-gray-100 text-blue-700 font-bold text-xs px-4 py-2 rounded-xl border shadow-sm flex items-center gap-1.5"
+            >
+              <FileText className="w-4 h-4" /> PRINT LAPORAN
+            </button>
+          </div>
         </div>
 
         {/* WHITE LABEL PREMIUM */}
@@ -401,7 +400,7 @@ const handleAddExpense = async (e: React.FormEvent) => {
           </div>
         )}
 
-              {/* ===== STATISTIK DASHBOARD ===== */}
+        {/* ===== STATISTIK DASHBOARD ===== */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
           {/* KARTU OMZET */}
           <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
@@ -595,82 +594,45 @@ const handleAddExpense = async (e: React.FormEvent) => {
           )}
         </div>
 
-        {/* ===== MANAJEMEN KATEGORI ===== */}
-        <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
-          <h3 className="text-sm font-bold text-gray-600 mb-3">🏷️ Manajemen Kategori</h3>
-          <form onSubmit={handleAddCategory} className="flex gap-2 mb-3">
-            <input 
-              type="text" 
-              value={newCategoryName} 
-              onChange={(e) => setNewCategoryName(e.target.value)} 
-              placeholder="Nama kategori baru..." 
-              className="border rounded-lg px-3 py-2 text-sm flex-1"
-            />
-            <button 
-              type="submit" 
-              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm px-4 py-2 rounded-lg"
-            >
-              <Plus className="w-4 h-4 inline" /> Tambah
-            </button>
-          </form>
-          <div className="flex flex-wrap gap-2">
-            {categories.map((cat) => (
-              <div key={cat.id} className="flex items-center gap-1 bg-gray-100 px-3 py-1.5 rounded-full">
-                <Tag className="w-3 h-3 text-gray-500" />
-                <span className="text-sm font-medium text-gray-700">{cat.name}</span>
-                <button 
-                  type="button" 
-                  onClick={() => handleDeleteCategory(cat.id)} 
-                  className="text-red-400 hover:text-red-600 ml-1"
-                >
-                  <Trash2 className="w-3 h-3" />
-                </button>
+        {/* ===== MODAL LISENSI ===== */}
+        {showSecretLicenseModal && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+              <div className="text-center mb-4">
+                <Key className="w-12 h-12 text-emerald-600 mx-auto mb-2" />
+                <h3 className="text-xl font-bold">Aktivasi Premium White-Label</h3>
+                <p className="text-sm text-gray-500">Masukkan PIN Sakti untuk membuka semua fitur</p>
               </div>
-            ))}
-            {categories.length === 0 && (
-              <p className="text-sm text-gray-400">Belum ada kategori</p>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ===== MODAL LISENSI ===== */}
-      {showSecretLicenseModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
-            <div className="text-center mb-4">
-              <Key className="w-12 h-12 text-emerald-600 mx-auto mb-2" />
-              <h3 className="text-xl font-bold">Aktivasi Premium White-Label</h3>
-              <p className="text-sm text-gray-500">Masukkan PIN Sakti untuk membuka semua fitur</p>
+              <form onSubmit={handleActivateLicense}>
+                <input 
+                  type="password" 
+                  value={licenseKeyInput} 
+                  onChange={(e) => setLicenseKeyInput(e.target.value)} 
+                  placeholder="Masukkan PIN 4 digit..." 
+                  className="w-full border rounded-lg px-4 py-2 text-center text-lg font-mono" 
+                  maxLength={4}
+                />
+                <div className="flex gap-2 mt-4">
+                  <button 
+                    type="button" 
+                    onClick={() => setShowSecretLicenseModal(false)} 
+                    className="flex-1 bg-gray-200 hover:bg-gray-300 font-bold py-2 rounded-lg"
+                  >
+                    Batal
+                  </button>
+                  <button 
+                    type="submit" 
+                    className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg"
+                  >
+                    Aktifkan
+                  </button>
+                </div>
+              </form>
             </div>
-            <form onSubmit={handleActivateLicense}>
-              <input 
-                type="password" 
-                value={licenseKeyInput} 
-                onChange={(e) => setLicenseKeyInput(e.target.value)} 
-                placeholder="Masukkan PIN 4 digit..." 
-                className="w-full border rounded-lg px-4 py-2 text-center text-lg font-mono" 
-                maxLength={4}
-              />
-              <div className="flex gap-2 mt-4">
-                <button 
-                  type="button" 
-                  onClick={() => setShowSecretLicenseModal(false)} 
-                  className="flex-1 bg-gray-200 hover:bg-gray-300 font-bold py-2 rounded-lg"
-                >
-                  Batal
-                </button>
-                <button 
-                  type="submit" 
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2 rounded-lg"
-                >
-                  Aktifkan
-                </button>
-              </div>
-            </form>
           </div>
-        </div>
-      )}
+        )}
+
+      </div>
     </div>
   );
 }

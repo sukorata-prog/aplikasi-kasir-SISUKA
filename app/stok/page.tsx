@@ -87,7 +87,13 @@ export default function StokGudangPage() {
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierContact, setNewSupplierContact] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
-
+  // State Satuan 
+  const [unitList, setUnitList] = useState<string[]>(['Botol', 'Sak', 'Pack', 'Kg']);
+  const [showAddUnitModal, setShowAddUnitModal] = useState(false);
+  const [newUnitName, setNewUnitName] = useState(''); 
+  // State Kategori
+const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+const [newCategoryName, setNewCategoryName] = useState('');
   useEffect(() => {
     loadData();
   }, []);
@@ -529,6 +535,18 @@ export default function StokGudangPage() {
     alert('✅ Supplier berhasil ditambahkan!');
   };
 
+// Fungsi untuk tambah Satuan
+const handleAddUnit = () => {
+  if (!newUnitName.trim()) return alert('Nama satuan wajib diisi!');
+  if (unitList.includes(newUnitName.trim())) {
+    return alert('Satuan sudah ada!');
+  }
+  setUnitList([...unitList, newUnitName.trim()]);
+  setNewUnitName('');
+  setShowAddUnitModal(false);
+  alert(`✅ Satuan "${newUnitName.trim()}" berhasil ditambahkan!`); // ← PAKAI BACKTICK!
+};
+
   // ===== RENDER =====
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-4 font-sans">
@@ -595,26 +613,39 @@ export default function StokGudangPage() {
             {/* SKU & Kategori */}
             <div>
               <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">SKU & Kategori</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input 
-                  type="text" 
-                  value={sku} 
-                  onChange={(e) => setSku(e.target.value)} 
-                  placeholder="SKU" 
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono" 
-                />
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500"
-                  required
-                >
-                  <option value="">Kategori</option>
-                  {categories.map((cat) => (
-                    <option key={cat.id} value={cat.name}>{cat.name}</option>
-                  ))}
-                </select>
-              </div>
+             <div>
+  <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">SKU & Kategori</label>
+  <div className="grid grid-cols-2 gap-2">
+    <input 
+      type="text" 
+      value={sku} 
+      onChange={(e) => setSku(e.target.value)} 
+      placeholder="SKU" 
+      className="w-full px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500 font-mono" 
+    />
+    <div className="flex gap-1">
+      <select
+        value={category}
+        onChange={(e) => setCategory(e.target.value)}
+        className="flex-1 px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500"
+        required
+      >
+        <option value="">Kategori</option>
+        {categories.map((cat) => (
+          <option key={cat.id} value={cat.name}>{cat.name}</option>
+        ))}
+      </select>
+      <button 
+        type="button"
+        onClick={() => setShowAddCategoryModal(true)}
+        className="px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-sm font-bold transition"
+      >
+        +
+      </button>
+    </div>
+  </div>
+</div>
+
             </div>
 
             {/* Nama Produk */}
@@ -629,16 +660,28 @@ export default function StokGudangPage() {
               />
             </div>
 
-            {/* Satuan & Stok */}
+                       {/* Satuan & Stok */}
             <div className="grid grid-cols-2 gap-2">
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Satuan</label>
-                <select value={units} onChange={(e) => setUnits(e.target.value)} className="w-full px-3 py-2 border rounded-lg text-sm bg-white outline-none">
-                  <option value="Botol">Botol</option>
-                  <option value="Sak">Sak</option>
-                  <option value="Pack">Pack</option>
-                  <option value="Kg">Kg</option>
-                </select>
+                <div className="flex gap-1">
+                  <select 
+                    value={units} 
+                    onChange={(e) => setUnits(e.target.value)} 
+                    className="flex-1 px-3 py-2 border rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-emerald-500"
+                  >
+                    {unitList.map((unit) => (
+                      <option key={unit} value={unit}>{unit}</option>
+                    ))}
+                  </select>
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddUnitModal(true)}
+                    className="px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-700 rounded-lg text-sm font-bold transition"
+                  >
+                    +
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="block text-[10px] font-bold text-gray-400 uppercase mb-1">Stok Awal</label>
@@ -1079,6 +1122,35 @@ export default function StokGudangPage() {
           </div>
         </div>
       )}
+      {/* ===== MODAL TAMBAH SATUAN ===== */}
+{showAddUnitModal && (
+  <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+    <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-xl font-black text-gray-800">📦 Tambah Satuan</h3>
+        <button onClick={() => setShowAddUnitModal(false)} className="text-gray-400 hover:text-gray-600">
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+      <div className="space-y-3">
+        <div>
+          <label className="block text-xs font-bold text-gray-500 mb-1">Nama Satuan *</label>
+          <input 
+            type="text" 
+            value={newUnitName} 
+            onChange={(e) => setNewUnitName(e.target.value)}
+            className="w-full px-3 py-2 border rounded-lg text-sm outline-none focus:ring-2 focus:ring-emerald-500"
+            placeholder="Contoh: Liter, Gram, Pcs"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2 mt-5">
+        <button onClick={() => setShowAddUnitModal(false)} className="flex-1 py-2.5 border border-gray-200 text-gray-500 font-bold rounded-lg hover:bg-gray-50 transition">Batal</button>
+        <button onClick={handleAddUnit} className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 rounded-lg transition">Simpan Satuan</button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* ===== AREA PRINT BARCODE ===== */}
       <div className="hidden print:block">
