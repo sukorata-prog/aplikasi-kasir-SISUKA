@@ -48,3 +48,7 @@ SISUKA_ERP_OFFLINE/
 .netlify
 SISUKA-ERP-Offline.zip
 sisuka-app.app/
+SISUKA-ERP-Offline.zip
+sisuka-app.app/
+out/
+.next/
